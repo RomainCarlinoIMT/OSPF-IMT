@@ -7,33 +7,27 @@
 
 int main()
 {
-    // creating socket
-    int client_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_socket < 0) {
+    int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    struct sockaddr_in server_address;
+    if (socket_fd < 0) {
         perror("Failed to create socket");
         return 1;
     }
 
-    // setting address
-    sockaddr_in server_address;
+    memset(&server_address, 0, sizeof(server_address));
+
+    // Filling server information
     server_address.sin_family = AF_INET; // IPv4
     server_address.sin_port = htons(8080); // Port 8080
     server_address.sin_addr.s_addr = INADDR_ANY;
 
-    //sending connection request
-    if (connect(client_socket, (struct sockaddr*)&server_address, sizeof(server_address)) < 0) {
-        perror("Failed to connect to server");
-        close(client_socket);
-        return 1;
-    }
-
-    //sending data to the server
+    // sending a message to the server
     const char* message = "Hello, Server!";
-    ssize_t bytes_sent = send(client_socket, message, strlen(message), 0);
+    ssize_t bytes_sent = sendto(socket_fd, message, strlen(message), 0,
+                                (struct sockaddr*)&server_address, sizeof(server_address));
     if (bytes_sent < 0) {
-        perror("Failed to send data");
-        close(client_socket);
+        perror("Failed to send message");
+        close(socket_fd);
         return 1;
     }
-    
 }

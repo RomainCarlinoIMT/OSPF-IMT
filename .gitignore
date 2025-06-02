@@ -36,3 +36,10 @@
 
 # Help files
 CommunicationFiableAsynchrone/*
+
+# Vscode files
+.vscode/
+
+# Generated source files
+client
+server

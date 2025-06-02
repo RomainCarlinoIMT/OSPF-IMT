@@ -1,54 +1,86 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <unistd.h>
+#include <sys/select.h>
+#include <time.h>
+
+int on_receive(char* buffer)
+{
+    printf("[UDP] Received: %s\n", buffer);
+    return 0;
+}
+
+int on_update(int* timer_interval)
+{
+    printf("[TIMER] %d seconds passed. Doing periodic action...\n", *timer_interval);
+    // *timer_interval += 1;
+    return 0;
+}
 
 int main() {
-    // Creating the servers socket
-    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_socket < 0) {
+    int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (socket_fd < 0) {
         perror("Failed to create socket");
         return 1;
     }
-    printf("Server socket created successfully.\n");
 
-    // Setting up server parameters
-    sockaddr_in server_address;
-    server_address.sin_family = AF_INET; // IPv4
-    server_address.sin_addr.s_addr = INADDR_ANY; // Accept connections from any IP
-    server_address.sin_port = htons(8080); // Port 8080
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(8080);
+    addr.sin_addr.s_addr = INADDR_ANY;
 
-    // Binding the socket
-    bind(server_socket, (struct sockaddr*)&server_address, sizeof(server_address));
-
-    // Listening for incoming connections
-    if (listen(server_socket, 5) < 0) {
-        perror("Failed to listen on socket");
+    if (bind(socket_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("Bind failed");
         return 1;
     }
-    printf("Server is listening on port 8080.\n");
-    
-    // Accepting a connection
-    int client_socket = accept(server_socket, nullptr, nullptr);
-    if (client_socket < 0) {
-        perror("Failed to accept connection");
-        return 1;
-    }
-    printf("Client connected successfully.\n");
 
-    // receiving data from the client
+    printf("Server listening on UDP port 8080.\n");
+
+    fd_set readfds;
     char buffer[1024];
-    ssize_t bytes_received = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_received < 0) {
-        perror("Failed to receive data");
-        return 1;
+    struct sockaddr_in client_addr;
+    socklen_t addrlen = sizeof(client_addr);
+
+    time_t last_action = time(NULL);
+    int timer_interval = 5; // seconds
+
+    while (1) {
+        FD_ZERO(&readfds);
+        FD_SET(socket_fd, &readfds);
+        int max_fd = socket_fd;
+
+        // Timeout de 1 seconde pour pouvoir faire une action périodique
+        struct timeval timeout;
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+
+        int activity = select(max_fd + 1, &readfds, NULL, NULL, &timeout);
+
+        if (activity < 0) {
+            perror("select error");
+            break;
+        }
+
+        if (FD_ISSET(socket_fd, &readfds)) {
+            ssize_t len = recvfrom(socket_fd, buffer, sizeof(buffer) - 1, 0,
+                                   (struct sockaddr*)&client_addr, &addrlen);
+            if (len > 0) {
+                buffer[len] = '\0';
+                on_receive(buffer);
+            }
+        }
+
+        time_t now = time(NULL);
+        if (difftime(now, last_action) >= timer_interval) {
+            on_update(&timer_interval);
+            last_action = now;
+        }
     }
-    buffer[bytes_received] = '\0'; // Null-terminate the received data
-    printf("Received data: %s\n", buffer);
 
-
-    //closing the sockets
-    close(server_socket);
+    close(socket_fd);
     return 0;
 }
