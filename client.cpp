@@ -19,7 +19,7 @@ int main()
     // Filling server information
     server_address.sin_family = AF_INET; // IPv4
     server_address.sin_port = htons(8080); // Port 8080
-    server_address.sin_addr.s_addr = INADDR_ANY;
+    server_address.sin_addr.s_addr = inet_addr("239.0.0.1"); // Multicast address
 
     // sending a message to the server
     const char* message = "Hello, Server!";

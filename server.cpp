@@ -33,6 +33,18 @@ int main() {
     addr.sin_port = htons(8080);
     addr.sin_addr.s_addr = INADDR_ANY;
 
+    // setting the multicast option
+    struct ip_mreq mreq;
+    mreq.imr_multiaddr.s_addr = inet_addr("239.0.0.1"); // Multicast address
+    mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+
+    if(setsockopt(socket_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+        perror("Failed to add multicast membership");
+        close(socket_fd);
+        return 1;
+    }
+    
+
     if (bind(socket_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         perror("Bind failed");
         return 1;
@@ -53,7 +65,6 @@ int main() {
         FD_SET(socket_fd, &readfds);
         int max_fd = socket_fd;
 
-        // Timeout de 1 seconde pour pouvoir faire une action périodique
         struct timeval timeout;
         timeout.tv_sec = 1;
         timeout.tv_usec = 0;
@@ -66,8 +77,7 @@ int main() {
         }
 
         if (FD_ISSET(socket_fd, &readfds)) {
-            ssize_t len = recvfrom(socket_fd, buffer, sizeof(buffer) - 1, 0,
-                                   (struct sockaddr*)&client_addr, &addrlen);
+            ssize_t len = recvfrom(socket_fd, buffer, sizeof(buffer) - 1, 0,(struct sockaddr*)&client_addr, &addrlen);
             if (len > 0) {
                 buffer[len] = '\0';
                 on_receive(buffer);
