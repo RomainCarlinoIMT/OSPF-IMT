@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# Pdf files
+*.pdf
+
+# Help files
+CommunicationFiableAsynchrone/*
