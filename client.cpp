@@ -5,12 +5,20 @@
 #include <unistd.h>
 #include <cstring>
 
-int send_message(const std::string& message)
+int send_message(const std::string& message, const std::string& interface_ip)
 {
     int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in server_address;
     if (socket_fd < 0) {
         perror("Failed to create socket");
+        return 1;
+    }
+
+    // --- Configuration de l'interface de sortie pour le multicast ---
+    struct in_addr local_interface_ip;
+    if (inet_aton(interface_ip.c_str(), &local_interface_ip) == 0) {
+        std::cerr << "Invalid interface IP address: " << interface_ip << std::endl;
+        close(socket_fd);
         return 1;
     }
 
@@ -30,13 +38,14 @@ int send_message(const std::string& message)
         return 1;
     }
 
+    close(socket_fd);
     return 0;
 }
 
 int main()
 {
     std::string message = "Hello, UDP Server!";
-    send_message(message);
-    send_message("Another message to the server");
+    send_message(message, "127.0.0.1");
+    send_message("Another message to the server", "127.0.0.1");
     return 0;
 }

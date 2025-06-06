@@ -58,7 +58,7 @@ int main() {
     socklen_t addrlen = sizeof(client_addr);
 
     time_t last_action = time(NULL);
-    int timer_interval = 5; // seconds
+    int timer_interval = 60; // seconds
 
     while (1) {
         FD_ZERO(&readfds);
