@@ -1,96 +1,80 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <iostream>
+#include <string>
+#include <cstring>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/select.h>
-#include <time.h>
+#include <ifaddrs.h>
+#include <net/if.h>  // pour les flags d'interface
 
-int on_receive(char* buffer)
-{
-    printf("[UDP] Received: %s\n", buffer);
-    return 0;
-}
+void join_multicast_all_interfaces(int sock, const std::string& multicast_ip) {
+    struct ifaddrs* ifaddr;
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("getifaddrs");
+        exit(EXIT_FAILURE);
+    }
 
-int on_update(int* timer_interval)
-{
-    printf("[TIMER] %d seconds passed. Doing periodic action...\n", *timer_interval);
-    // *timer_interval += 1;
-    return 0;
+    for (struct ifaddrs* ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr) continue;
+        if (ifa->ifa_addr->sa_family != AF_INET) continue;  // IPv4 uniquement
+        if (!(ifa->ifa_flags & IFF_UP)) continue;           // interface up
+        if (!(ifa->ifa_flags & IFF_MULTICAST)) continue;    // multicast supporté
+
+        struct ip_mreq mreq;
+        mreq.imr_multiaddr.s_addr = inet_addr(multicast_ip.c_str());
+        mreq.imr_interface = ((struct sockaddr_in*)ifa->ifa_addr)->sin_addr;
+
+        if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+            std::cerr << "Failed to join multicast on interface " << ifa->ifa_name
+                      << " (" << inet_ntoa(mreq.imr_interface) << "): " << strerror(errno) << "\n";
+        } else {
+            std::cout << "Joined multicast " << multicast_ip << " on interface " << ifa->ifa_name
+                      << " (" << inet_ntoa(mreq.imr_interface) << ")\n";
+        }
+    }
+
+    freeifaddrs(ifaddr);
 }
 
 int main() {
-    int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socket_fd < 0) {
-        perror("Failed to create socket");
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("socket");
         return 1;
     }
 
-    struct sockaddr_in addr;
+    sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(8080);
     addr.sin_addr.s_addr = INADDR_ANY;
 
-    // setting the multicast option
-    struct ip_mreq mreq;
-    mreq.imr_multiaddr.s_addr = inet_addr("239.0.0.1"); // Multicast address
-    mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-
-    if(setsockopt(socket_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
-        perror("Failed to add multicast membership");
-        close(socket_fd);
-        return 1;
-    }
-    
-
-    if (bind(socket_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("Bind failed");
+    if (bind(sock, (sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("bind");
+        close(sock);
         return 1;
     }
 
-    printf("Server listening on UDP port 8080.\n");
+    std::string multicast_ip = "239.0.0.1";
+    join_multicast_all_interfaces(sock, multicast_ip);
 
-    fd_set readfds;
+    std::cout << "Server listening on UDP port 8080...\n";
+
     char buffer[1024];
-    struct sockaddr_in client_addr;
-    socklen_t addrlen = sizeof(client_addr);
+    sockaddr_in sender_addr{};
+    socklen_t sender_len = sizeof(sender_addr);
 
-    time_t last_action = time(NULL);
-    int timer_interval = 60; // seconds
-
-    while (1) {
-        FD_ZERO(&readfds);
-        FD_SET(socket_fd, &readfds);
-        int max_fd = socket_fd;
-
-        struct timeval timeout;
-        timeout.tv_sec = 1;
-        timeout.tv_usec = 0;
-
-        int activity = select(max_fd + 1, &readfds, NULL, NULL, &timeout);
-
-        if (activity < 0) {
-            perror("select error");
+    while (true) {
+        ssize_t len = recvfrom(sock, buffer, sizeof(buffer) - 1, 0,
+                               (sockaddr*)&sender_addr, &sender_len);
+        if (len < 0) {
+            perror("recvfrom");
             break;
         }
-
-        if (FD_ISSET(socket_fd, &readfds)) {
-            ssize_t len = recvfrom(socket_fd, buffer, sizeof(buffer) - 1, 0,(struct sockaddr*)&client_addr, &addrlen);
-            if (len > 0) {
-                buffer[len] = '\0';
-                on_receive(buffer);
-            }
-        }
-
-        time_t now = time(NULL);
-        if (difftime(now, last_action) >= timer_interval) {
-            on_update(&timer_interval);
-            last_action = now;
-        }
+        buffer[len] = '\0';
+        std::cout << "[UDP] Received from " << inet_ntoa(sender_addr.sin_addr) << ": " << buffer << "\n";
     }
 
-    close(socket_fd);
+    close(sock);
     return 0;
 }
