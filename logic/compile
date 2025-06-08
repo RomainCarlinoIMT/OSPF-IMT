@@ -1,0 +1,1 @@
+g++ unit_test.cpp logic.cpp -o unit_test
