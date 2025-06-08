@@ -3,6 +3,27 @@
 #include <iostream>
 #include <algorithm> // For std::all_of
 #include <limits>    // For std::numeric_limits
+#include <stdexcept> // For std::out_of_range and std::invalid_argument
+#include <chrono>  // For getting the current time
+#include <sstream> // For std::stringstream
+#include <vector>  // For std::vector
+
+
+// Defining routerDecllaration struc
+struct RouterDeclaration {
+    std::string router_name; // Name of the router
+    std::string ip_with_mask; // IP address with subnet mask
+    int link_cost; // Cost of the link to this router
+    long long timestamp; // Timestamp of the declaration
+
+    bool operator==(const RouterDeclaration& other) const 
+    {
+        return (router_name == other.router_name &&
+                ip_with_mask == other.ip_with_mask &&
+                link_cost == other.link_cost &&
+                timestamp == other.timestamp);
+    }
+};
 
 bool isValidRouterName(const std::string& router_name) 
 {
@@ -209,10 +230,100 @@ bool assert_ip_and_mask(const std::string& ip_with_mask)
 }
 
 
-std::string create_router_definition(std::string router_name, std::string ip_with_mask) 
+RouterDeclaration create_router_definition(std::string router_name, std::string ip_with_mask, int link_cost) 
 {
     // Expected fomat: router_name:RXXXXX
     //               : router_ip x.x.x.x/m
+    //               : link_cost 0-9999
 
-   return "wip";
+    std::string definition;
+
+    // Getting the actuall timestamp in miliseonds to string
+    long long timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+    ).count();
+    
+    // filling the definition struct
+    RouterDeclaration routerDeclaration;
+    routerDeclaration.router_name = router_name;
+    routerDeclaration.ip_with_mask = ip_with_mask;
+    routerDeclaration.link_cost = link_cost;
+    routerDeclaration.timestamp = timestamp;
+
+    return routerDeclaration;
 }
+
+std::string serialize_router_definition(RouterDeclaration router_declaration) 
+{
+    std::string definition;
+
+    // Getting the actuall timestamp in miliseonds to string
+    long long timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+    ).count();
+    
+    definition += "{1," + router_declaration.router_name + "," + router_declaration.ip_with_mask + "," + 
+                  std::to_string(router_declaration.link_cost) + "," + std::to_string(timestamp) + "}";
+    
+    return definition;
+}
+
+RouterDeclaration deserialize_router_definition(const std::string& definition) 
+{
+    RouterDeclaration declaration;
+
+    // Example definition: {1,R123,10.0.1.1/24,5,1700000000000}
+
+    // Assert expression is not empty and starts with '{' and ends with '}'
+    if(definition.empty() || definition.front() != '{' || definition.back() != '}')
+    {
+        throw std::invalid_argument("Invalid router definition format. Missing { or } or empty.");
+    }
+
+    std::string content = definition.substr(1, definition.length() - 2); // Remove the { and }
+
+    // Diving the content into segements
+    std::stringstream ss(content);
+    std::string segment;
+    std::vector<std::string> segments;
+
+    while (std::getline(ss, segment, ','))
+    {
+        segments.push_back(segment);
+    }
+
+    if(segments.size() != 5) 
+    {
+        throw std::invalid_argument("Invalid router definition format. Expected 5 segments.");
+    }
+
+    // Convert each segment to the appropriate type and fill the declaration struct
+    try
+    {
+        if (segments[0] != "1") 
+        {
+            throw std::invalid_argument("Invalid router definition format. First segment must be '1'.");
+        }
+        
+        declaration.router_name = segments[1]; // Router name
+        declaration.ip_with_mask = segments[2]; // IP with mask
+        declaration.link_cost = std::stoi(segments[3]); // Link cost
+        declaration.timestamp = std::stoll(segments[4]); // Timestamp
+    }
+    catch (const std::invalid_argument& e) 
+    {
+        throw std::runtime_error("Deserialization error: invalid argument in conversion. " + std::string(e.what()));
+    } 
+    catch (const std::out_of_range& e) 
+    {
+        throw std::runtime_error("Deserialization error: numeric value out of range. " + std::string(e.what()));
+    } 
+    catch (const std::exception& e) 
+    {
+        throw std::runtime_error("Deserialization error: " + std::string(e.what()));
+    }
+
+    return declaration;
+}
+
+

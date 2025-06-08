@@ -67,7 +67,27 @@ int main() {
     std::cout << "192.168.1.A/24: " << (assert_ip_and_mask("192.168.1.A/24") ? "Valide" : "Invalide") << std::endl; // Caractère non numérique dans l'IP
     std::cout << "1.2.3.4.5/24: " << (assert_ip_and_mask("1.2.3.4.5/24") ? "Valide" : "Invalide") << std::endl; // Trop d'octets
 
+    std::cout << "\n --- Testing serialize and deserialize functions ---" << std::endl;
+
+    RouterDeclaration router = create_router_definition("R1", "10.0.1.1/24", 5);
+    if (serialize_router_definition(router) == "{1,R1,10.0.1.1/24,5," + std::to_string(router.timestamp) + "}")
+    {
+        std::cout << "Serialization test passed!" << std::endl;
+    } else {
+        std::cout << "Serialization test failed!" << std::endl;
+    }
+    
+    if (router == deserialize_router_definition(serialize_router_definition(router)))
+    {
+        std::cout << "Deserialization test passed!" << std::endl;
+    } else {
+        std::cout << "Deserialization test failed!" << std::endl;
+    }
+
+    
+
     std::cout << "\n--- Fin des Tests Unitaires Manuels ---" << std::endl;
 
+    printf("\n\n ========== TEMPORARY TEST REMOVE IN PROD !!!\n\n");
     return 0;
 }
