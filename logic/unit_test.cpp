@@ -141,6 +141,69 @@ int main() {
     add_router_declaration(lsdb, new_router7);
     debug_known_router(lsdb);
 
+    std::cout << "\n--- Testing a base scenario with three routers ---" << std::endl;
+    std::map<std::string, std::map<std::string, RouterDeclaration>> router_1_lsdb;
+    std::map<std::string, std::map<std::string, RouterDeclaration>> router_2_lsdb;
+    std::map<std::string, std::map<std::string, RouterDeclaration>> router_3_lsdb;
+    
+    RouterDeclaration router_1_declaration = create_router_definition("R1", "10.0.1.1/24", 5);
+    RouterDeclaration router_2_declaration = create_router_definition("R2", "10.0.1.2/24", 5);
+    RouterDeclaration router_2_1_declaration = create_router_definition("R2", "10.0.2.1/24",10);
+    RouterDeclaration router_3_declaration = create_router_definition("R3", "10.0.2.2/24", 10);
+
+    // Each router has its own LSDB
+    add_router_declaration(router_1_lsdb, router_1_declaration);
+    add_router_declaration(router_2_lsdb, router_2_declaration);
+    add_router_declaration(router_2_lsdb, router_2_1_declaration);
+    add_router_declaration(router_3_lsdb, router_3_declaration);
+
+    // Router 2 send declaration to Router 1
+    add_router_declaration(router_1_lsdb, router_2_declaration);
+    add_router_declaration(router_1_lsdb, router_2_1_declaration);
+
+    // Router 1 send declaration to Router 2
+    add_router_declaration(router_2_lsdb, router_1_declaration);
+    // Router 3 send declaration to Router 2
+    add_router_declaration(router_2_lsdb, router_3_declaration);
+
+    // Router 2 send declaration to Router 3
+    add_router_declaration(router_3_lsdb, router_2_declaration);
+    add_router_declaration(router_3_lsdb, router_2_1_declaration);
+
+    std::cout << "=== R1 \n" << std::endl;
+    debug_known_router(router_1_lsdb);
+    std::cout << "=== R2\n" << std::endl;
+    debug_known_router(router_2_lsdb);
+    std::cout << "=== R3\n" << std::endl;
+    debug_known_router(router_3_lsdb);
+
+    // Router 2 send declaration to Router 1
+    add_router_declaration(router_1_lsdb, router_2_declaration); // Same as before, should not change anything
+    add_router_declaration(router_1_lsdb, router_2_1_declaration); // Same as before, should not change anything
+    add_router_declaration(router_1_lsdb, router_3_declaration); // New declaration from Router 3
+
+    // Router 1 send declaration to Router 2
+    add_router_declaration(router_2_lsdb, router_1_declaration); // Same as before, should not change anything
+
+    // Router 3 send declaration to Router 2
+    add_router_declaration(router_2_lsdb, router_3_declaration); // Same as before, should not change anything
+
+    // Router 2 send declaration to Router 3
+    add_router_declaration(router_3_lsdb, router_2_declaration); // Same as before, should not change anything
+    add_router_declaration(router_3_lsdb, router_2_1_declaration); // Same as before, should not change anything
+    add_router_declaration(router_3_lsdb, router_1_declaration); // New declaration from Router 1
+
+    std::cout << "=== R1 \n" << std::endl;
+    debug_known_router(router_1_lsdb);
+    std::cout << "=== R2\n" << std::endl;
+    debug_known_router(router_2_lsdb);
+    std::cout << "=== R3\n" << std::endl;
+    debug_known_router(router_3_lsdb);
+
+
+
+
+
     std::cout << "\n--- Ends of unit tests ---" << std::endl;
 
     printf("\n\n ========== TEMPORARY TEST REMOVE IN PROD !!!\n\n");
