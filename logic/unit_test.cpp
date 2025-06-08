@@ -84,7 +84,19 @@ int main() {
         std::cout << "Deserialization test failed!" << std::endl;
     }
 
-    
+    std::cout << "\n--- Testing debug_known_router function ---" << std::endl;
+    std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
+    local_lsdb["R1"]["10.0.1.0/24"] = create_router_definition("R1", "10.0.1.0/24", 10);
+    local_lsdb["R1"]["10.0.2.0/24"] = create_router_definition("R1", "10.0.2.0/24", 20);
+    local_lsdb["R1"]["192.168.1.0/24"] = create_router_definition("R1", "192.168.1.0/24", 5);
+
+    local_lsdb["R2"]["10.0.3.0/24"] = create_router_definition("R2", "10.0.3.0/24", 30);
+    local_lsdb["R2"]["10.0.4.0/24"] = create_router_definition("R2", "10.0.4.0/24", 40);
+
+    local_lsdb["R3"]["172.16.0.0/16"] = create_router_definition("R3", "172.16.0.0/16", 15);
+
+
+    debug_known_router(local_lsdb);
 
     std::cout << "\n--- Fin des Tests Unitaires Manuels ---" << std::endl;
 

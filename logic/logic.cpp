@@ -7,6 +7,7 @@
 #include <chrono>  // For getting the current time
 #include <sstream> // For std::stringstream
 #include <vector>  // For std::vector
+#include <map>     // For std::map
 
 
 // Defining routerDecllaration struc
@@ -20,8 +21,7 @@ struct RouterDeclaration {
     {
         return (router_name == other.router_name &&
                 ip_with_mask == other.ip_with_mask &&
-                link_cost == other.link_cost &&
-                timestamp == other.timestamp);
+                link_cost == other.link_cost); // Timestamp is not included in the comparison, as it is expected to change with each declaration
     }
 };
 
@@ -326,4 +326,46 @@ RouterDeclaration deserialize_router_definition(const std::string& definition)
     return declaration;
 }
 
+bool is_router_declaration_newer(RouterDeclaration& existing, RouterDeclaration& new_declaration) 
+{
+    // Note don't check if this is the same packer type, because other can't fit in RouterDeclaration
 
+    if(existing == new_declaration) 
+    {
+        return false; // Same declaration, no need to update
+    }
+
+    // Assert if all fields are the same except timestamp
+    if (existing.router_name != new_declaration.router_name ||
+        existing.ip_with_mask != new_declaration.ip_with_mask ||
+        existing.link_cost != new_declaration.link_cost)
+    {        
+        return false; // Not the same router name or IP or link cost
+    }
+
+    // If we reach here, it means the router name, IP and link cost are the same, but the timestamp is different
+    if (new_declaration.timestamp <= existing.timestamp)
+    {
+        // printf("New declaration is not newer than the existing one.\n");
+        return false; // New declaration is not newer than the existing one
+    }
+
+    return true; // New declaration is newer than the existing one
+}
+
+void debug_known_router(std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb)
+{
+    std::cout << "Known routers:" << std::endl;
+    for (const auto& [router_name, router_data] : local_lsdb) 
+    {
+        std::cout << "Router: " << router_name << std::endl;
+        for (const auto& [ip_mask, declaration] : router_data) 
+        {
+            std::cout << "  IP/Mask: " << declaration.ip_with_mask 
+                      << ", Link Cost: " << declaration.link_cost 
+                      << ", Timestamp: " << declaration.timestamp 
+                      << std::endl;
+        }
+    }
+    std::cout << "Total routers: " << local_lsdb.size() << std::endl;
+}

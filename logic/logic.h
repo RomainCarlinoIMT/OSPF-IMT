@@ -2,6 +2,7 @@
 #define LOGIC_H
 
 #include <string>
+#include <map>
 
 // Defining routerDecllaration struc
 struct RouterDeclaration {
@@ -24,5 +25,6 @@ bool assert_ip_and_mask(const std::string& ip_with_mask) ;
 RouterDeclaration create_router_definition(std::string router_name, std::string ip_with_mask, int link_cost);
 std::string serialize_router_definition(RouterDeclaration router_declaration);
 RouterDeclaration deserialize_router_definition(const std::string& definition);
+void debug_known_router(std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb);
 
 #endif // LOGIC_H
