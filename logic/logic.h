@@ -26,5 +26,6 @@ RouterDeclaration create_router_definition(std::string router_name, std::string 
 std::string serialize_router_definition(RouterDeclaration router_declaration);
 RouterDeclaration deserialize_router_definition(const std::string& definition);
 void debug_known_router(std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb);
+bool add_router_declaration(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const RouterDeclaration& new_declaration);
 
 #endif // LOGIC_H

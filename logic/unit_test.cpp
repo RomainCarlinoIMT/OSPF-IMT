@@ -98,7 +98,50 @@ int main() {
 
     debug_known_router(local_lsdb);
 
-    std::cout << "\n--- Fin des Tests Unitaires Manuels ---" << std::endl;
+    std::cout << "\n--- Testing add_router_declaration function ---" << std::endl;
+    std::map<std::string, std::map<std::string, RouterDeclaration>> lsdb;
+    debug_known_router(lsdb);
+
+    std::cout << "=== Testing add one" << std::endl;
+    RouterDeclaration new_router = create_router_definition("R1", "10.0.1.1/24", 5);
+    add_router_declaration(lsdb, new_router);
+    debug_known_router(lsdb);
+
+    std::cout << "=== Testing adding a second" << std::endl;
+    RouterDeclaration new_router2 = create_router_definition("R1", "10.0.2.1/24", 10);
+    add_router_declaration(lsdb, new_router2);
+    debug_known_router(lsdb);
+
+    std::cout << "=== Testing adding a third with same IP but different cost" << std::endl;
+    RouterDeclaration new_router3 = create_router_definition("R1", "10.0.1.1/24", 15);
+    new_router3.timestamp = new_router2.timestamp + 1000; // Ensure it's newer
+    add_router_declaration(lsdb, new_router3);
+    debug_known_router(lsdb);
+
+    std::cout << "=== Testing adding a fourth with same IP but older timestamp" << std::endl;
+    RouterDeclaration new_router4 = create_router_definition("R1", "10.0.1.1/24", 200);
+    new_router4.timestamp = new_router2.timestamp - 1000; // Ensure it's older
+    add_router_declaration(lsdb, new_router4);
+    debug_known_router(lsdb);
+
+    std::cout << "=== Testing adding a fifth with same IP but same cost and timestamp" << std::endl;
+    RouterDeclaration new_router5 = create_router_definition("R1", "10.0.1.1/24",15);
+    new_router5.timestamp = new_router2.timestamp; // Ensure it's the same
+    add_router_declaration(lsdb, new_router5);
+    debug_known_router(lsdb);
+    
+    std::cout  << "=== Testing adding a route with same info but newer timestamp" << std::endl;
+    RouterDeclaration new_router6 = create_router_definition("R1", "10.0.1.1/24", 15);
+    new_router6.timestamp = new_router2.timestamp + 1000; // Ensure it's newer
+    add_router_declaration(lsdb, new_router6);
+    debug_known_router(lsdb);
+
+    std::cout << "=== Testing adding another router with different IP" << std::endl;
+    RouterDeclaration new_router7 = create_router_definition("R2", "10.0.2.1/24", 20);
+    add_router_declaration(lsdb, new_router7);
+    debug_known_router(lsdb);
+
+    std::cout << "\n--- Ends of unit tests ---" << std::endl;
 
     printf("\n\n ========== TEMPORARY TEST REMOVE IN PROD !!!\n\n");
     return 0;

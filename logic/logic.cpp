@@ -369,3 +369,53 @@ void debug_known_router(std::map<std::string, std::map<std::string, RouterDeclar
     }
     std::cout << "Total routers: " << local_lsdb.size() << std::endl;
 }
+
+bool add_router_declaration(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb,
+     const RouterDeclaration& new_declaration) 
+{
+    // Remeber keys of the request
+    const std::string& router_name = new_declaration.router_name;
+    const std::string& ip_with_mask = new_declaration.ip_with_mask;
+
+    // Check if the router already exists in the local_lsdb
+    auto router_it = local_lsdb.find(router_name);
+
+    if(router_it == local_lsdb.end())
+    {
+        // Case were the router does't exist in the local_lsdb
+        // So we add it instantly
+        local_lsdb[router_name][ip_with_mask] = new_declaration;
+        // Return it directly to spedd up convergence
+        return true; // Router added successfully 
+    }
+    else
+    {
+        // Case were router is already in the local_lsdb
+        // Getting all the declarations for this router
+        std::map<std::string, RouterDeclaration>& router_links_map = router_it->second;
+
+        auto link_it = router_links_map.find(ip_with_mask);
+
+        if(link_it == router_links_map.end())
+        {
+            // Case were the link does't exist for this router
+            router_links_map[ip_with_mask] = new_declaration;
+            return true; // Router link added successfully
+        }
+        else
+        {
+            // Case were the link alrzady exists for this router
+            const RouterDeclaration& existing_declaration = link_it->second;
+
+            if(new_declaration.timestamp > existing_declaration.timestamp)
+            {
+                // Case were the new declaration is newer than the existing one
+
+                router_links_map[ip_with_mask] = new_declaration; // Update the existing declaration
+                return true; // Mark the LSDB as updated
+            }
+        }
+    }
+
+    return false; // No update made
+}
