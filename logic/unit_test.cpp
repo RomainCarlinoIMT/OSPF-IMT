@@ -141,6 +141,25 @@ int main() {
     add_router_declaration(lsdb, new_router7);
     debug_known_router(lsdb);
 
+    std::cout << "\n--- Testing case where a router is dead and timestamp is older than threshold ---" << std::endl;
+    lsdb["R1"]["10.0.1.1/24"].timestamp -= 10000; // Simulate an old timestamp
+    long long threshold_ms = 5000; // Set threshold to 5 seconds
+    if (cleanup_old_declarations(lsdb, threshold_ms)) {
+        std::cout << "Old declarations cleaned up successfully." << std::endl;
+    } else {
+        std::cout << "No old declarations to clean up." << std::endl;
+    }
+    debug_known_router(lsdb);
+
+    std::cout << "\n--- Testing if cleaning up old declarations removes the old router if there's no more interfaces ---" << std::endl;
+    lsdb["R1"]["10.0.2.1/24"].timestamp -= 10000; // Simulate an old timestamp
+    if (cleanup_old_declarations(lsdb, threshold_ms)) {
+        std::cout << "Old declarations cleaned up successfully." << std::endl;
+    } else {
+        std::cout << "No old declarations to clean up." << std::endl;
+    }
+    debug_known_router(lsdb);
+
     std::cout << "\n--- Testing a base scenario with three routers ---" << std::endl;
     std::map<std::string, std::map<std::string, RouterDeclaration>> router_1_lsdb;
     std::map<std::string, std::map<std::string, RouterDeclaration>> router_2_lsdb;

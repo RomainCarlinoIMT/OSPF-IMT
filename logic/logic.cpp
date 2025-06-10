@@ -419,3 +419,56 @@ bool add_router_declaration(std::map<std::string, std::map<std::string, RouterDe
 
     return false; // No update made
 }
+
+bool cleanup_old_declarations(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, long long threshold_ms) 
+{
+    bool cleaned = false;
+    long long current_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+    ).count();
+
+    // Create the vector to store routers to remove
+    std::vector<std::string> routers_to_remove;
+
+    auto router_it = local_lsdb.begin();
+    while(router_it != local_lsdb.end())
+    {
+        std::string router_name = router_it->first;
+        std::map<std::string, RouterDeclaration>& router_links_map = router_it->second;
+
+        auto link_it = router_links_map.begin();
+        while(link_it != router_links_map.end())
+        {
+            const RouterDeclaration& declaration = link_it->second;
+
+           long long declaration_age = current_time - declaration.timestamp;
+
+            if(declaration_age > threshold_ms) 
+            {
+                // If the declaration is older than the threshold, remove it
+                link_it = router_links_map.erase(link_it); // Erase returns the next iterator
+                cleaned = true; // Mark that we cleaned something
+            } 
+            else 
+            {
+                ++link_it; // Move to the next link
+            }
+        }
+
+        // If the router has no links left, remove the router itself
+        if(router_links_map.empty()) 
+        {
+            routers_to_remove.push_back(router_name); // Store the router name to remove later
+            router_it = local_lsdb.erase(router_it); // Erase returns the next iterator
+        } 
+        ++router_it; // Move to the next router
+    }
+    
+    // Remove routers that have no links left
+    for(const std::string& router_name : routers_to_remove) 
+    {
+        local_lsdb.erase(router_name); // Remove the router from the local_lsdb
+        cleaned = true; // Mark that we cleaned something
+    }
+    return cleaned; // Return true if any declarations were cleaned up
+}
