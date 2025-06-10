@@ -13,6 +13,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
+#include "../logic/logic.h"
 
 // Exécute une commande et retourne sa sortie
 std::string execCommand(const char* cmd) {
@@ -102,6 +103,11 @@ int send_message(const std::string& message, const std::string& interface_ip) {
 
 int main() {
     std::string interface_ip = "10.2.0.4";  // L'IP de l'interface à utiliser pour envoyer
+
+    RouterDeclaration router_declaration = create_router_definition("Router1", interface_ip + "/24", 10);
+    std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
+    add_router_declaration(local_lsdb, router_declaration);
+    debug_known_router(local_lsdb);
 
     // Récupérer toutes les interfaces et leur débit max
     std::vector<std::string> interfaces;
