@@ -195,8 +195,23 @@ void read_config_file(const std::string& filename, std::vector<std::string>& int
     // Assume that user will provide a file with one interface per line
     std::string line;
     while (std::getline(config_file, line)) {
-        if (!line.empty()) {
-            interfaces.push_back(line);
+        if (!line.empty() && line[0] != '#') {
+            // Test if the line is a valid ip with mask
+            if(assert_ip_and_mask(line)) {
+                // Take only the ip before the slash
+                size_t slash_pos = line.find('/');
+                if (slash_pos != std::string::npos) {
+                    std::string ip = line.substr(0, slash_pos);
+                    interfaces.push_back(ip);
+                }
+                else 
+                {
+                    // Debug that config contains one invalide line
+                    std::cerr << "Invalid interface format in config file: " << line << "\n";
+                }
+            } else {
+                std::cerr << "Invalid interface format in config file: " << line << "\n";
+            }
         }
     }
     
@@ -214,13 +229,17 @@ void debug_output_ips(const std::vector<std::string>& interfaces) {
 }
 
 int main() {
-    // Création du routeur local
-    RouterDeclaration router_declaration = create_router_definition("Router1", "10.0.1.1/24", 10);
+    // Running varaibles
+    std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
+    std::vector<std::string> interfaces;
+
+
+    // Testing if logic works
+    RouterDeclaration router_declaration = create_router_definition("Router1", "10.0.1.1/24", 10);    
     add_router_declaration(local_lsdb, router_declaration);
     debug_known_router(local_lsdb);
 
-    // Lecture des interfaces dans le fichier de configuration
-    std::vector<std::string> interfaces;
+    // Read configuration file to get interfaces and debug output
     try {
         read_config_file("config", interfaces);
     } catch (const std::exception& ex) {
