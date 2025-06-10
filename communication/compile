@@ -1,2 +1,2 @@
-g++ client.cpp ../logic/logic.cpp -o client
-g++ server.cpp ../logic/logic.cpp -o server
+g++ client.cpp ../logic/logic.cpp msg.cpp -o client
+g++ server.cpp ../logic/logic.cpp msg.cpp -o server

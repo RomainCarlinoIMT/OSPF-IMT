@@ -15,6 +15,7 @@
 #include <regex>
 #include <array>
 #include "../logic/logic.h"
+#include "msg.h"
 
 // Exécute une commande et retourne sa sortie
 std::string execCommand(const char* cmd) {
@@ -79,45 +80,6 @@ std::map<std::string, std::string> getNetworkInterfacesWithIPs() {
 }
 
 // Envoie un message multicast via l'interface donnée
-int send_message(const std::string& message, const std::string& interface_ip) {
-    int sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-        perror("socket");
-        return 1;
-    }
-
-    struct in_addr local_interface;
-    if (inet_aton(interface_ip.c_str(), &local_interface) == 0) {
-        std::cerr << "Invalid interface IP: " << interface_ip << std::endl;
-        close(sock);
-        return 1;
-    }
-
-    if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF,
-                   &local_interface, sizeof(local_interface)) < 0) {
-        perror("setsockopt IP_MULTICAST_IF");
-        close(sock);
-        return 1;
-    }
-
-    struct sockaddr_in addr = {0};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(8080);
-    addr.sin_addr.s_addr = inet_addr("239.0.0.1");
-
-    ssize_t sent = sendto(sock, message.c_str(), message.length(), 0,
-                          (struct sockaddr*)&addr, sizeof(addr));
-    if (sent < 0) {
-        perror("sendto");
-        close(sock);
-        return 1;
-    }
-
-    std::cout << "Message sent successfully from interface with IP: " << interface_ip << std::endl;
-
-    close(sock);
-    return 0;
-}
 
 int main() {
     std::string interface_ip_for_sending = "10.2.0.4";

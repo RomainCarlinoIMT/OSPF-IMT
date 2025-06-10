@@ -15,6 +15,7 @@
 #include <set>
 #include <climits>
 #include "../logic/logic.h"
+#include "msg.h"
 
 std::map<std::string, std::string> forwardingTable;
 std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb; 
@@ -148,7 +149,7 @@ void apply_route_to_system(const std::string& destination, const std::string& ne
 
 // Traitement des messages reçus
 void onReceive(int sock, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID) {
-    char buffer[1024];
+    char buffer[1024]; // Normaly this should be less than 1024 bytes, but we add some extra space for safety
     sockaddr_in sender_addr{};
     socklen_t sender_len = sizeof(sender_addr);
 
@@ -228,16 +229,20 @@ void debug_output_ips(const std::vector<std::string>& interfaces) {
     }
 }
 
+void create_server_declaration(const std::vector<std::string>& interfaces, std::vector<RouterDeclaration>& router_declarations, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb) {
+    for(const auto& iface : interfaces)
+    {
+        RouterDeclaration router_declaration = create_router_definition("R1", iface , 10);
+        router_declarations.push_back(router_declaration);
+        add_router_declaration(local_lsdb, router_declaration);
+    }    
+}
+
 int main() {
     // Running varaibles
     std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
     std::vector<std::string> interfaces;
-
-
-    // Testing if logic works
-    RouterDeclaration router_declaration = create_router_definition("Router1", "10.0.1.1/24", 10);    
-    add_router_declaration(local_lsdb, router_declaration);
-    debug_known_router(local_lsdb);
+    std::vector<RouterDeclaration> router_declarations;
 
     // Read configuration file to get interfaces and debug output
     try {
@@ -247,6 +252,10 @@ int main() {
         return 1;
     }
     debug_output_ips(interfaces);
+
+    // Create the this router own declaration an add it to the local LSDB
+    create_server_declaration(interfaces, router_declarations, local_lsdb);
+    debug_known_router(local_lsdb);
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
