@@ -1,18 +1,19 @@
 #include <iostream>
-#include <cstdio>
-#include <memory>
-#include <stdexcept>
 #include <string>
-#include <regex>
-#include <array>
-#include <vector>
-#include <set>
-#include <sstream>
+#include <cstring>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <cstring>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <map>
+#include <sstream>
+#include <cstdio>
+#include <memory>
+#include <stdexcept>
+#include <regex>
+#include <array>
 #include "../logic/logic.h"
 
 // Exécute une commande et retourne sa sortie
@@ -26,22 +27,6 @@ std::string execCommand(const char* cmd) {
     }
     pclose(pipe);
     return result;
-}
-
-// Récupère les noms des interfaces réseau (hors "lo")
-std::vector<std::string> getNetworkInterfaces() {
-    std::string ipOutput = execCommand("ip -o link show | awk -F': ' '{print $2}'");
-    std::istringstream stream(ipOutput);
-    std::string line;
-    std::vector<std::string> interfaces;
-    std::set<std::string> ignored = {"lo"};
-
-    while (std::getline(stream, line)) {
-        if (!line.empty() && ignored.find(line) == ignored.end()) {
-            interfaces.push_back(line);
-        }
-    }
-    return interfaces;
 }
 
 // Récupère le débit max configuré (rate) d'une interface via "tc qdisc show"
@@ -58,6 +43,39 @@ std::string getInterfaceRate(const std::string& iface) {
         // ignore errors silently for this example
     }
     return "none";
+}
+
+// Récupère les interfaces actives et leur adresse IP (hors loopback)
+std::map<std::string, std::string> getNetworkInterfacesWithIPs() {
+    std::map<std::string, std::string> interfaces_info;
+    struct ifaddrs *ifaddr, *ifa;
+    char ip_address[INET_ADDRSTRLEN];
+
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("getifaddrs");
+        return interfaces_info;
+    }
+
+    for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr) continue;
+        if (ifa->ifa_flags & IFF_LOOPBACK) continue;
+        if (!(ifa->ifa_flags & IFF_UP)) continue;
+
+        if (ifa->ifa_addr->sa_family == AF_INET) {
+            struct sockaddr_in* sa = reinterpret_cast<struct sockaddr_in*>(ifa->ifa_addr);
+
+            if (inet_ntop(AF_INET, &(sa->sin_addr), ip_address, INET_ADDRSTRLEN) != nullptr) {
+                if (interfaces_info.find(ifa->ifa_name) == interfaces_info.end()) {
+                    interfaces_info[ifa->ifa_name] = ip_address;
+                }
+            } else {
+                std::cerr << "Error converting IP address for interface " << ifa->ifa_name << ": " << strerror(errno) << std::endl;
+            }
+        }
+    }
+
+    freeifaddrs(ifaddr);
+    return interfaces_info;
 }
 
 // Envoie un message multicast via l'interface donnée
@@ -95,36 +113,34 @@ int send_message(const std::string& message, const std::string& interface_ip) {
         return 1;
     }
 
-    std::cout << "Message sent successfully from interface " << interface_ip << std::endl;
+    std::cout << "Message sent successfully from interface with IP: " << interface_ip << std::endl;
 
     close(sock);
     return 0;
 }
 
 int main() {
-    std::string interface_ip = "10.2.0.4";  // L'IP de l'interface à utiliser pour envoyer
+    std::string interface_ip_for_sending = "10.2.0.4";
 
-    RouterDeclaration router_declaration = create_router_definition("Router1", interface_ip + "/24", 10);
+    RouterDeclaration router_declaration = create_router_definition("Router1", interface_ip_for_sending + "/24", 10);
     std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
     add_router_declaration(local_lsdb, router_declaration);
     debug_known_router(local_lsdb);
 
-    // Récupérer toutes les interfaces et leur débit max
-    std::vector<std::string> interfaces;
-    try {
-        interfaces = getNetworkInterfaces();
-    } catch (const std::exception& ex) {
-        std::cerr << "Erreur lors de la récupération des interfaces : " << ex.what() << std::endl;
+    std::map<std::string, std::string> active_interfaces = getNetworkInterfacesWithIPs();
+    
+    if (active_interfaces.empty()) {
+        std::cerr << "No active IPv4 network interfaces found (excluding loopback)." << std::endl;
         return 1;
     }
 
-    // Construire le message avec interface + débit
-    std::ostringstream message;
-    for (const auto& iface : interfaces) {
-        std::string rate = getInterfaceRate(iface);
-        message << iface << ":" << rate << "; ";
+    std::ostringstream message_stream;
+    for (const auto& pair : active_interfaces) {
+        const std::string& iface_name = pair.first;
+        const std::string& iface_ip = pair.second;
+        std::string rate = getInterfaceRate(iface_name);
+        message_stream << iface_name << " (" << iface_ip << "):" << rate << "; ";
     }
 
-    // Envoi du message multicast
-    return send_message(message.str(), interface_ip);
+    return send_message(message_stream.str(), interface_ip_for_sending);
 }
