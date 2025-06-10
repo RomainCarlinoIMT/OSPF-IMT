@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <net/if.h>  // pour les flags d'interface
+#include "../logic/logic.h"
 
 void join_multicast_all_interfaces(int sock, const std::string& multicast_ip) {
     struct ifaddrs* ifaddr;
@@ -38,6 +39,12 @@ void join_multicast_all_interfaces(int sock, const std::string& multicast_ip) {
 }
 
 int main() {
+    RouterDeclaration router_declaration = create_router_definition("Router1", "10.0.1.1/24", 10);
+    std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
+    add_router_declaration(local_lsdb, router_declaration);
+    debug_known_router(local_lsdb);
+
+
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         perror("socket");
