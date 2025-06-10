@@ -135,12 +135,31 @@ int main() {
     }
 
     std::ostringstream message_stream;
+
+    // Construction du message dans le format attendu
     for (const auto& pair : active_interfaces) {
         const std::string& iface_name = pair.first;
         const std::string& iface_ip = pair.second;
         std::string rate = getInterfaceRate(iface_name);
-        message_stream << iface_name << " (" << iface_ip << "):" << rate << "; ";
+
+        // Conversion du débit en coût arbitraire pour la démo
+        int cost = 10; // Valeur par défaut
+        if (rate != "none") {
+            if (rate.find("Mbit") != std::string::npos) {
+                cost = 1000 / std::stoi(rate.substr(0, rate.find("Mbit"))); // Exemple : plus le débit est élevé, plus le coût est faible
+            } else if (rate.find("Kbit") != std::string::npos) {
+                cost = 10000 / std::stoi(rate.substr(0, rate.find("Kbit"))); // Plus le débit est faible, plus le coût est élevé
+            }
+        }
+
+        // Exemple : Nom du routeur = nom de l'interface
+        message_stream << iface_name << " " << iface_ip << "/24 " << cost << "; ";
     }
 
-    return send_message(message_stream.str(), interface_ip_for_sending);
+    std::string message = message_stream.str();
+    if (!message.empty() && message.back() == ' ') {
+        message.pop_back(); // On retire l'espace final
+    }
+
+    return send_message(message, interface_ip_for_sending);
 }

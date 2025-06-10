@@ -10,8 +10,16 @@
 #include <map>
 #include <vector>
 #include <fstream>
-
+#include <sstream>
+#include <queue>
+#include <set>
+#include <climits>
 #include "../logic/logic.h"
+
+std::map<std::string, std::string> forwardingTable;
+std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb; 
+const std::string LOCAL_ROUTER_ID = "R1";
+
 
 // Joindre le groupe multicast sur toutes les interfaces IPv4 actives supportant le multicast
 void join_multicast_all_interfaces(int sock, const std::string& multicast_ip) {
@@ -43,8 +51,103 @@ void join_multicast_all_interfaces(int sock, const std::string& multicast_ip) {
     freeifaddrs(ifaddr);
 }
 
+void updateRoutingTable(const std::string& message, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb) {
+    std::istringstream ss(message);
+    std::string router_info;
+
+    while (std::getline(ss, router_info, ';')) {
+        std::istringstream router_ss(router_info);
+        std::string router_name, interface_ip, cost_str;
+
+        if (std::getline(router_ss, router_name, '|') &&
+            std::getline(router_ss, interface_ip, '|') &&
+            std::getline(router_ss, cost_str, '|')) {
+
+            int cost = std::stoi(cost_str);
+            RouterDeclaration new_router = create_router_definition(router_name, interface_ip + "/24", cost);
+
+            add_router_declaration(local_lsdb, new_router);
+            std::cout << "Updated routing table with: " << router_name << " - " << interface_ip << " - " << cost << std::endl;
+        }
+    }
+}
+
+void computeShortestPaths(const std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID) {
+    // Distance minimale vers chaque routeur
+    std::map<std::string, int> distances;
+    // Pour retrouver le next hop
+    std::map<std::string, std::string> previous;
+
+    // Initialisation
+    for (const auto& router : local_lsdb) {
+        distances[router.first] = INT_MAX;
+    }
+    distances[LOCAL_ROUTER_ID] = 0;
+
+    // Min-heap (distance, router_id)
+    using P = std::pair<int, std::string>;
+    std::priority_queue<P, std::vector<P>, std::greater<>> queue;
+
+    queue.push({0, LOCAL_ROUTER_ID});
+
+    while (!queue.empty()) {
+        auto [dist, current] = queue.top();
+        queue.pop();
+
+        if (local_lsdb.find(current) == local_lsdb.end()) continue;
+
+        for (const auto& neighbor : local_lsdb.at(current)) {
+            int cost = neighbor.second.link_cost;
+            const std::string& neighborId = neighbor.first;
+
+            if (distances[current] + cost < distances[neighborId]) {
+                distances[neighborId] = distances[current] + cost;
+                previous[neighborId] = current;
+                queue.push({distances[neighborId], neighborId});
+            }
+        }
+    }
+
+    // Mise à jour de la table de routage
+    forwardingTable.clear();
+    for (const auto& [destination, _] : distances) {
+        if (destination == LOCAL_ROUTER_ID || distances[destination] == INT_MAX) continue;
+    
+        std::string nextHop = destination;
+        while (previous.find(nextHop) != previous.end() && previous[nextHop] != LOCAL_ROUTER_ID) {
+            nextHop = previous[nextHop];
+        }
+    
+        if (previous.find(nextHop) != previous.end()) { // vérifie qu'on a bien trouvé un chemin
+            forwardingTable[destination] = nextHop;
+        }
+    }
+}
+
+// Fonction pour afficher la table de routage
+void updateForwardingTable() {
+    std::cout << "\n==== Forwarding Table ====\n";
+    for (const auto& [destination, nextHop] : forwardingTable) {
+        std::cout << "Destination: " << destination << " via " << nextHop << "\n";
+    }
+    std::cout << "==========================\n";
+}
+
+
+void apply_route_to_system(const std::string& destination, const std::string& nextHop) {
+    // Exemple de commande ip route (à adapter selon ton réseau)
+    std::string cmd = "ip route replace " + destination + " via " + nextHop;
+    int ret = system(cmd.c_str());
+    if (ret != 0) {
+        std::cerr << "Failed to apply route: " << cmd << std::endl;
+    } else {
+        std::cout << "Applied route: " << cmd << std::endl;
+    }
+}
+
+
 // Traitement des messages reçus
-void onReceive(int sock) {
+void onReceive(int sock, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID) {
     char buffer[1024];
     sockaddr_in sender_addr{};
     socklen_t sender_len = sizeof(sender_addr);
@@ -58,11 +161,27 @@ void onReceive(int sock) {
     buffer[len] = '\0';
 
     std::cout << "[UDP] Received from " << inet_ntoa(sender_addr.sin_addr) << ": " << buffer << "\n";
+
+    updateRoutingTable(buffer, local_lsdb);
+
+    computeShortestPaths(local_lsdb, LOCAL_ROUTER_ID);
+
+    updateForwardingTable();
+
+    for (const auto& [destination, nextHop] : forwardingTable) {
+        apply_route_to_system(destination, nextHop);
+    }
+
+    debug_known_router(local_lsdb);
 }
+
+
+
 
 void onUpdate() {
     std::cout << "Periodic update task executed." << std::endl;
 }
+
 
 void read_config_file(const std::string& filename, std::vector<std::string>& interfaces) {
     // This function should read the configuration file and populate the interfaces vector
@@ -95,13 +214,12 @@ void debug_output_ips(const std::vector<std::string>& interfaces) {
 }
 
 int main() {
-    // Testing if logic works
+    // Création du routeur local
     RouterDeclaration router_declaration = create_router_definition("Router1", "10.0.1.1/24", 10);
-    std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
     add_router_declaration(local_lsdb, router_declaration);
     debug_known_router(local_lsdb);
 
-    // Read configuration file to get interfaces and debug output
+    // Lecture des interfaces dans le fichier de configuration
     std::vector<std::string> interfaces;
     try {
         read_config_file("config", interfaces);
@@ -153,7 +271,7 @@ int main() {
             onUpdate();
         } else {
             if (FD_ISSET(sock, &read_fds)) {
-                onReceive(sock);
+                onReceive(sock, local_lsdb, LOCAL_ROUTER_ID);
             }
         }
     }
