@@ -8,6 +8,9 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <map>
+#include <vector>
+#include <fstream>
+
 #include "../logic/logic.h"
 
 // Joindre le groupe multicast sur toutes les interfaces IPv4 actives supportant le multicast
@@ -61,11 +64,52 @@ void onUpdate() {
     std::cout << "Periodic update task executed." << std::endl;
 }
 
+void read_config_file(const std::string& filename, std::vector<std::string>& interfaces) {
+    // This function should read the configuration file and populate the interfaces vector
+    std::vector<std::string> config_interfaces;
+    std::ifstream config_file(filename);
+    if (!config_file.is_open())
+    {
+        throw std::runtime_error("Could not open configuration file:");
+    }
+
+    // Assume that user will provide a file with one interface per line
+    std::string line;
+    while (std::getline(config_file, line)) {
+        if (!line.empty()) {
+            interfaces.push_back(line);
+        }
+    }
+    
+    config_file.close();
+    if (interfaces.empty()) {
+        throw std::runtime_error("No interfaces found in configuration file.");
+    }    
+}
+
+void debug_output_ips(const std::vector<std::string>& interfaces) {
+    std::cout << "Interfaces with IPs:\n";
+    for (const auto& iface : interfaces) {
+        std::cout << "- " << iface << "\n";
+    }
+}
+
 int main() {
+    // Testing if logic works
     RouterDeclaration router_declaration = create_router_definition("Router1", "10.0.1.1/24", 10);
     std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
     add_router_declaration(local_lsdb, router_declaration);
     debug_known_router(local_lsdb);
+
+    // Read configuration file to get interfaces and debug output
+    std::vector<std::string> interfaces;
+    try {
+        read_config_file("config", interfaces);
+    } catch (const std::exception& ex) {
+        std::cerr << "Error reading configuration file: " << ex.what() << std::endl;
+        return 1;
+    }
+    debug_output_ips(interfaces);
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
