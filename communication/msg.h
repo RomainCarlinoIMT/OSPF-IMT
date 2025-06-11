@@ -2,5 +2,5 @@
 #define MSG_H
 
 int send_message(const std::string& message, const std::string& interface_ip);
-
+bool send_all_router_declarations_to_all(const std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::vector<std::string>& interfaces);
 #endif // MSG_H

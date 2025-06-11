@@ -8,6 +8,9 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include "../logic/logic.h"
+#include <map>
+#include <bits/chrono.h>
+#include <vector>
 
 int send_message(const std::string& message, const std::string& interface_ip) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -49,28 +52,37 @@ int send_message(const std::string& message, const std::string& interface_ip) {
     return 0;
 }
 
-bool send_router_declaration(const RouterDeclaration& router_declaration, const std::string& interface_ip) {
+bool send_router_declaration_to_all(const RouterDeclaration& router_declaration, std::vector<std::string> interfaces) {
+    bool success = true;
     std::string message = serialize_router_definition(router_declaration);
-    int result = send_message(message, interface_ip);
-    if (result != 0) {
-        std::cerr << "Failed to send router declaration message." << std::endl;
-        return false;
+    for (const auto& iface_ip : interfaces) {
+        int result = send_message(message, iface_ip);
+        if (result != 0) {
+            std::cerr << "Failed to send router declaration message to interface: " << iface_ip << std::endl;
+            success = false; // Used to indicate if any send failed
+        }
+        else
+        {
+        std::cout << "Router declaration sent successfully to interface: " << iface_ip << std::endl;
+        }
     }
-    std::cout << "Router declaration sent successfully." << std::endl;
-
-    return 0;
+    return success;
 }
 
-bool send_all_proper_router_declarations(
+
+bool send_all_router_declarations_to_all(
     const std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb,
-    const std::string& interface_ip) {
-    
-    for (const auto& [router_id, declarations] : local_lsdb) {
-        for (const auto& [interface, declaration] : declarations) {
-            if (!send_router_declaration(declaration, interface_ip)) {
-                return false;
+    const std::vector<std::string>& interfaces) 
+{
+    // This functions assume that local_lsdb is in a good state and that all router declarations are valid and up-to-date.
+    bool success = true;
+    for (const auto& [router_name, router_links_map] : local_lsdb) {
+        for (const auto& [ip_mask, declaration] : router_links_map) {
+            if (!send_router_declaration_to_all(declaration, interfaces)) {
+                success = false; // Used to indicate if any send failed
             }
         }
     }
-    return true;
+    return success;
 }
+

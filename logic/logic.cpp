@@ -472,3 +472,41 @@ bool cleanup_old_declarations(std::map<std::string, std::map<std::string, Router
     }
     return cleaned; // Return true if any declarations were cleaned up
 }
+
+void update_lsdb(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, 
+                 const std::string& ROUTER_ID) 
+{
+    // Firstly remove old declarations
+    long long threshold_ms = 30000; // 30 seconds threshold for old declarations
+    bool cleaned = cleanup_old_declarations(local_lsdb, threshold_ms);
+    if(cleaned) 
+    {
+        std::cout << "Old declarations cleaned up." << std::endl;
+    } 
+    else 
+    {
+        std::cout << "No old declarations to clean up." << std::endl;
+    }
+    // Now parse the message and update the LSDB to update this router own declaration
+    auto it_my_declaration = local_lsdb.find(ROUTER_ID); // Assuming that ROUTER_ID is the name of the router
+    
+    if(it_my_declaration == local_lsdb.end())
+    {
+        // Extremely rare case, maybe configuration error or Fatal error is comming
+        return; // No declaration for this router, nothing to update
+    }
+
+    std::map<std::string, RouterDeclaration>& my_declarations = it_my_declaration->second;
+
+    // Generate the new timestamp for the router declaration
+    long long new_timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+    ).count();
+
+    for (auto& pair : my_declarations) 
+    {
+        RouterDeclaration& declaration = pair.second;
+        declaration.timestamp = new_timestamp; // Update the timestamp for each declaration
+        // Note: We don't update the router_name, ip_with_mask, and link_cost here. This should be done only when the router declaration is received from another router.
+    }    
+}

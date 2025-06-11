@@ -28,5 +28,6 @@ RouterDeclaration deserialize_router_definition(const std::string& definition);
 void debug_known_router(std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb);
 bool add_router_declaration(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const RouterDeclaration& new_declaration);
 bool cleanup_old_declarations(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, long long threshold_ms);
+void update_lsdb(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& ROUTER_ID);
 
 #endif // LOGIC_H

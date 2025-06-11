@@ -148,7 +148,7 @@ void apply_route_to_system(const std::string& destination, const std::string& ne
 
 
 // Traitement des messages reçus
-void onReceive(int sock, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID) {
+void on_receive(int sock, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID) {
     char buffer[1024]; // Normaly this should be less than 1024 bytes, but we add some extra space for safety
     sockaddr_in sender_addr{};
     socklen_t sender_len = sizeof(sender_addr);
@@ -160,6 +160,19 @@ void onReceive(int sock, std::map<std::string, std::map<std::string, RouterDecla
         return;
     }
     buffer[len] = '\0';
+
+    try
+    {
+        // Deserialize received message
+        RouterDeclaration received_declaration = deserialize_router_definition(buffer);
+        // Calling add_router_declaration to update the local_lsdb
+        add_router_declaration(local_lsdb, received_declaration);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Failed to deserialize router declaration: " << e.what() << "\n";
+        return; // Ignore invalid messages
+    }
 
     std::cout << "[UDP] Received from " << inet_ntoa(sender_addr.sin_addr) << ": " << buffer << "\n";
 
@@ -179,8 +192,14 @@ void onReceive(int sock, std::map<std::string, std::map<std::string, RouterDecla
 
 
 
-void onUpdate() {
-    std::cout << "Periodic update task executed." << std::endl;
+void on_update(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID, std::vector<std::string>& interfaces) {
+    // firstly updating lsdb
+    update_lsdb(local_lsdb, LOCAL_ROUTER_ID);
+
+    // Sending all router declarations to all interfaces
+    send_all_router_declarations_to_all(local_lsdb, interfaces);
+    std::cout << "Periodic update task executed." << std::endl; // Debug output Note: Remove in production
+
 }
 
 
@@ -229,20 +248,19 @@ void debug_output_ips(const std::vector<std::string>& interfaces) {
     }
 }
 
-void create_server_declaration(const std::vector<std::string>& interfaces, std::vector<RouterDeclaration>& router_declarations, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb) {
+void create_server_declaration(const std::vector<std::string>& interfaces, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb) {
     for(const auto& iface : interfaces)
     {
         RouterDeclaration router_declaration = create_router_definition("R1", iface , 10);
-        router_declarations.push_back(router_declaration);
         add_router_declaration(local_lsdb, router_declaration);
     }    
 }
 
 int main() {
-    // Running varaibles
+    // Running variables
     std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
     std::vector<std::string> interfaces;
-    std::vector<RouterDeclaration> router_declarations;
+    std::string LOCAL_ROUTER_ID = "R1"; // TODO: Make this dynamic or configurable
 
     // Read configuration file to get interfaces and debug output
     try {
@@ -253,9 +271,9 @@ int main() {
     }
     debug_output_ips(interfaces);
 
-    // Create the this router own declaration an add it to the local LSDB
-    create_server_declaration(interfaces, router_declarations, local_lsdb);
-    debug_known_router(local_lsdb);
+    // Create default lsdb with is own declaration
+    create_server_declaration(interfaces, local_lsdb);
+    debug_known_router(local_lsdb); // Fror debug purpose Note: Remove in production
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
@@ -296,10 +314,11 @@ int main() {
             break;
         } else if (ret == 0) {
             // Timeout expiré, on fait la mise à jour périodique
-            onUpdate();
+            on_update(local_lsdb, LOCAL_ROUTER_ID, interfaces);
         } else {
-            if (FD_ISSET(sock, &read_fds)) {
-                onReceive(sock, local_lsdb, LOCAL_ROUTER_ID);
+            if (FD_ISSET(sock, &read_fds))
+            {
+                on_receive(sock, local_lsdb, LOCAL_ROUTER_ID);
             }
         }
     }
