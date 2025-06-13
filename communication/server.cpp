@@ -184,11 +184,11 @@ void on_receive(int sock, std::map<std::string, std::map<std::string, RouterDecl
 
     std::cout << "[UDP] Received from " << inet_ntoa(sender_addr.sin_addr) << ": " << buffer << "\n";
 
-    updateRoutingTable(buffer, local_lsdb);
+    //updateRoutingTable(buffer, local_lsdb);
 
-    computeShortestPaths(local_lsdb, LOCAL_ROUTER_ID);
+    //computeShortestPaths(local_lsdb, LOCAL_ROUTER_ID);
 
-    updateForwardingTable();
+    //updateForwardingTable();
 
     for (const auto& [destination, nextHop] : forwardingTable) {
         apply_route_to_system(destination, nextHop);

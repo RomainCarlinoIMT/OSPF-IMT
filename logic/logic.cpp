@@ -263,7 +263,7 @@ std::string serialize_router_definition(RouterDeclaration router_declaration)
     ).count();
     
     definition += "{1," + router_declaration.router_name + "," + router_declaration.ip_with_mask + "," + 
-                  std::to_string(router_declaration.link_cost) + "," + std::to_string(timestamp) + "}";
+                  std::to_string(router_declaration.link_cost) + "," + std::to_string(router_declaration.timestamp) + "}";
     
     return definition;
 }
@@ -505,6 +505,7 @@ void update_lsdb(std::map<std::string, std::map<std::string, RouterDeclaration>>
 
     for (auto& pair : my_declarations) 
     {
+        printf("Updating declaration for router: %s info %s\n", pair.second.router_name.c_str(), pair.second.ip_with_mask.c_str());
         RouterDeclaration& declaration = pair.second;
         declaration.timestamp = new_timestamp; // Update the timestamp for each declaration
         // Note: We don't update the router_name, ip_with_mask, and link_cost here. This should be done only when the router declaration is received from another router.
