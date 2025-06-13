@@ -19,7 +19,15 @@
 
 std::map<std::string, std::string> forwardingTable;
 std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb; 
-const std::string LOCAL_ROUTER_ID = "R1";
+
+std::string get_local_hostname() {
+    char hostname[256]; // Taille typique suffisante pour les hostnames
+    if (gethostname(hostname, sizeof(hostname)) != 0) {
+        perror("gethostname");
+        exit(EXIT_FAILURE);
+    }
+    return std::string(hostname);
+}
 
 
 // Joindre le groupe multicast sur toutes les interfaces IPv4 actives supportant le multicast
@@ -199,7 +207,7 @@ void on_update(std::map<std::string, std::map<std::string, RouterDeclaration>>& 
     // Sending all router declarations to all interfaces
     send_all_router_declarations_to_all(local_lsdb, interfaces);
     std::cout << "Periodic update task executed." << std::endl; // Debug output Note: Remove in production
-
+    debug_known_router(local_lsdb);
 }
 
 
@@ -248,10 +256,10 @@ void debug_output_ips(const std::vector<std::string>& interfaces) {
     }
 }
 
-void create_server_declaration(const std::vector<std::string>& interfaces, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb) {
+void create_server_declaration(const std::vector<std::string>& interfaces, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID) {
     for(const auto& iface : interfaces)
     {
-        RouterDeclaration router_declaration = create_router_definition("R1", iface , 10);
+        RouterDeclaration router_declaration = create_router_definition(LOCAL_ROUTER_ID, iface , 10);
         add_router_declaration(local_lsdb, router_declaration);
     }    
 }
@@ -260,7 +268,7 @@ int main() {
     // Running variables
     std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
     std::vector<std::string> interfaces;
-    std::string LOCAL_ROUTER_ID = "R1"; // TODO: Make this dynamic or configurable
+    std::string LOCAL_ROUTER_ID = get_local_hostname();
 
     // Read configuration file to get interfaces and debug output
     try {
@@ -272,7 +280,7 @@ int main() {
     debug_output_ips(interfaces);
 
     // Create default lsdb with is own declaration
-    create_server_declaration(interfaces, local_lsdb);
+    create_server_declaration(interfaces, local_lsdb, LOCAL_ROUTER_ID);
     debug_known_router(local_lsdb); // Fror debug purpose Note: Remove in production
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
