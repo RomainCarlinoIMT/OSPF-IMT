@@ -511,3 +511,76 @@ void update_lsdb(std::map<std::string, std::map<std::string, RouterDeclaration>>
         // Note: We don't update the router_name, ip_with_mask, and link_cost here. This should be done only when the router declaration is received from another router.
     }    
 }
+
+
+// Fonction to convert ip to an uint
+// Assuming that passed ip is correct
+uint32_t ip_to_uint(const std::string& ip_str)
+{
+    uint32_t ip_int = 0;
+    std::stringstream ss(ip_str);
+    std::string octet_str;
+
+    for(int i = 0; i < 4; ++i)
+    {
+        if(!std::getline(ss, octet_str, '.'))
+        {
+            throw std::invalid_argument("Invalid IP format in ip_to_uint: " + ip_str);
+        }
+        int octet = std::stoi(octet_str);
+        if (octet < 0 || octet > 255)
+        {
+            throw std::invalid_argument("Invalid octet value in ip_to_uint: " + octet_str);
+        }
+        ip_int = (ip_int << 8) | octet;
+    }
+    return ip_int;
+}
+
+// Fonction used to convert uint back to ip string
+std::string uint_to_ip(uint32_t ip_int)
+{
+    std::string ip_str;
+    for (int i = 3; i >= 0; i--) // inverted iteration !!!
+    {
+        ip_str += std::to_string( ( ip_int >> (i * 8) ) & 0xFF );
+        if (i > 0)
+        {
+            ip_str += ".";
+        }
+    }
+    return ip_str;
+}
+
+
+// Fonction used to convert the received pair router ip + mask to the network address
+std::string get_network_address(const std::string& ip_with_mask)
+{
+    // Starting by checking if ip_with_mask is correct
+    if(!assert_ip_and_mask(ip_with_mask))
+    {
+        throw std::invalid_argument("Invalid IP with mask" + ip_with_mask);
+    }
+
+    // Above function should avoid those lines to thorw errors
+    size_t slash_pos = ip_with_mask.find('/');
+    std::string ip_part = ip_with_mask.substr(0, slash_pos);
+    std::string mask_bits_str = ip_with_mask.substr(slash_pos + 1);
+
+    int mask_bits = std::stoi(mask_bits_str);
+    if (mask_bits < 0 || mask_bits > 32)
+    {
+        throw std::invalid_argument("Invalid mask bits: " + mask_bits_str);
+    }
+
+    // Convert the ip to uint
+    uint32_t ip_int = ip_to_uint(ip_part);
+
+    // Creating the binary mask
+    uint32_t binary_mask = (mask_bits == 0) ? 0 : (0xFFFFFFFF << (32 - mask_bits));
+
+    // Then thansk to the properties of ip and mask just make an and gate
+    uint32_t network_int = ip_int & binary_mask;
+    std::string network_ip_str = uint_to_ip(network_int);
+    return network_ip_str + "/" + mask_bits_str;
+}

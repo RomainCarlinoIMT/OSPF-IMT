@@ -220,6 +220,30 @@ int main() {
     debug_known_router(router_3_lsdb);
 
 
+    std::cout << "\n--- Testing converting router_ip + sub_net_mask to network address ---" << std::endl;
+
+    try {
+        std::string ip_mask1 = "192.168.1.100/24";
+        std::string network_addr1 = get_network_address(ip_mask1);
+        std::cout << "IP/Mask: " << ip_mask1 << " -> Network Address: " << network_addr1 << std::endl; // Expected: 192.168.1.0/24
+
+        std::string ip_mask2 = "10.0.5.254/8";
+        std::string network_addr2 = get_network_address(ip_mask2);
+        std::cout << "IP/Mask: " << ip_mask2 << " -> Network Address: " << network_addr2 << std::endl; // Expected: 10.0.0.0/8
+
+        std::string ip_mask3 = "172.16.20.5/16";
+        std::string network_addr3 = get_network_address(ip_mask3);
+        std::cout << "IP/Mask: " << ip_mask3 << " -> Network Address: " << network_addr3 << std::endl; // Expected: 172.16.0.0/16
+
+        std::string ip_mask4 = "192.168.1.1/30";
+        std::string network_addr4 = get_network_address(ip_mask4);
+        std::cout << "IP/Mask: " << ip_mask4 << " -> Network Address: " << network_addr4 << std::endl; // Expected: 192.168.1.0/30
+
+        std::cout << "Successfully passed this section !" << std::endl;
+
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
 
 
 
