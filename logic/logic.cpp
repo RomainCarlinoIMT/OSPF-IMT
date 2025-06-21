@@ -721,7 +721,7 @@ void build_matrix_from_lsbd(std::vector<std::vector<int>>& matrix,
 
 const int INF = std::numeric_limits<int>::max();
 
-int dijkstraNextHop(const std::vector<std::vector<int>>& adjMatrix, int start, int target) {
+std::pair<int, int> dijkstraNextHop(const std::vector<std::vector<int>>& adjMatrix, int start, int target) {
     int n = adjMatrix.size();
     std::vector<int> dist(n, INF);
     std::vector<int> parent(n, -1);
@@ -755,7 +755,7 @@ int dijkstraNextHop(const std::vector<std::vector<int>>& adjMatrix, int start, i
 
     // Si on n'a jamais atteint le target
     if (dist[target] == INF)
-        return -1;
+        return std::make_pair(-1, -1);
 
     // Reconstruire le chemin de target vers start
     int current = target;
@@ -769,7 +769,33 @@ int dijkstraNextHop(const std::vector<std::vector<int>>& adjMatrix, int start, i
 
     // Si le chemin a au moins 2 nœuds, le next hop est le 2e
     if (path.size() >= 3)
-        return path[2];
+        // return path[2];
+        return std::make_pair(path[1], path[2]);
     else
-        return -1; // start == target
+        return std::make_pair(-1, -1);; // start == target
+}
+
+// Used at the end diskstra because only subnets are used so information is losts
+std::string get_router_ip_on_network(std::string& router_name, std::string& network_address, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb)
+{
+    // assert if the router exist (even if at this point this is very strange)
+    auto it_router = local_lsdb.find(router_name); // Filter with only the route we want to find
+    if (it_router == local_lsdb.end()) 
+    {
+        return "";
+    }
+
+    for (const auto& ip_decl_pair : it_router->second) {
+        const RouterDeclaration& declaration = ip_decl_pair.second;
+        
+        // Compute de the address to see if it's the right
+        std::string declared_network_address = get_network_address(declaration.ip_with_mask);
+        if (declared_network_address == network_address) {
+            return declaration.ip_with_mask;
+        }
+    }
+
+    // This never should happend !!!
+    return "";
+
 }

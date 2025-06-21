@@ -342,7 +342,7 @@ int main() {
     std::cout << std::endl;
     display_matrix(matrix_3);
 
-    int next_hop = dijkstraNextHop(matrix_3, 0, 3);
+    int next_hop = dijkstraNextHop(matrix_3, 0, 3).second;
     std::cout << "Next hop is: " << next_hop << std::endl;
 
     std::cout << "\n--- Diskstra test(2)---" << std::endl;
@@ -378,9 +378,13 @@ int main() {
     std::cout << std::endl;
     display_matrix(matrix_4);
 
-    int next_hop_2 = dijkstraNextHop(matrix_4, 0, 2);
-    std::cout << "Next hop is: " << next_hop_2 << std::endl;
-    std::cout << "Next hop is: " << all_nodes_3[next_hop_2] << std::endl;
+    std::pair dijkstra_res = dijkstraNextHop(matrix_4, 0, 2);
+    int sub_net = dijkstra_res.first;
+    int next_hop_2 = dijkstra_res.second;
+
+    std::string next_router_ip = get_router_ip_on_network(all_nodes_3[next_hop_2], all_nodes_3[sub_net], lsdb_5);
+    std::cout << "Next hop is: " << all_nodes_3[next_hop_2] << " on " << next_router_ip <<std::endl;
+    
 
 
 
