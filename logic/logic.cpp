@@ -9,6 +9,7 @@
 #include <vector>  // For std::vector
 #include <map>     // For std::map
 #include <set>
+#include <bits/stdc++.h>
 
 
 // Defining routerDecllaration struc
@@ -647,4 +648,71 @@ std::vector<std::string> get_all_nodes(std::map<std::string, std::map<std::strin
     }
 
     return all_nodes;
+}
+
+const int NO_LINK = -1; // Used to infrom that there's not link
+
+// Function to display the cost matrix
+void display_matrix(const std::vector<std::vector<int>>& matrix) // Pass by const reference for efficiency
+{
+    std::cout << "--- Matrix Content ---" << std::endl;
+    if (matrix.empty()) {
+        std::cout << "Matrix is empty." << std::endl;
+        return;
+    }
+
+    for(const auto& row : matrix)
+    {
+        for(const auto& cell : row)
+        {
+            std::cout << cell << "\t\t";
+        }
+        std::cout << std::endl;
+    }
+    std::cout << "----------------------" << std::endl;
+}
+
+// Function to create a void n*n matrix (to avoid core_dump)
+std::vector<std::vector<int>> create_n_by_n_matrix(int n)
+{
+    std::vector<std::vector<int>> matrix(n, std::vector<int>(n, -1)); // Whe -1 to inform that's unrechable
+    return matrix;
+}
+
+// Function to adde one router declaration to matrix
+void add_router_declaration_to_matrix(RouterDeclaration& declaration, std::vector<std::vector<int>>& matrix, std::vector<std::string>& all_nodes )
+{
+    std::string start_node = declaration.router_name;
+    std::string end_node = get_network_address(declaration.ip_with_mask);
+    int cost = declaration.link_cost; // Note don't forget the COST !!!!
+
+    auto start_it = std::find(all_nodes.begin(), all_nodes.end(), start_node);
+    auto end_it = std::find(all_nodes.begin(), all_nodes.end(), end_node);
+
+    // Assert results are correct even if it should happend !
+    if (start_it == all_nodes.end() || end_it == all_nodes.end()) {
+        std::cerr << "Erreur : nœud non trouvé dans all_nodes" << std::endl;
+        return;
+    }
+
+    int start_index = std::distance(all_nodes.begin(), start_it);
+    int end_index = std::distance(all_nodes.begin(), end_it);
+
+    // We have a not oriented graphe so each link is duplicated in the matrix !
+    matrix[start_index][end_index] = cost;
+    matrix[end_index][start_index] = cost;
+}
+
+void build_matrix_from_lsbd(std::vector<std::vector<int>>& matrix,
+    std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb,
+    std::vector<std::string>& all_nodes)
+{
+    for (auto& router_entry : local_lsdb) 
+    {
+        for (auto& declaration_item : router_entry.second) 
+        {
+            RouterDeclaration& declaration = declaration_item.second;
+            add_router_declaration_to_matrix(declaration, matrix, all_nodes);
+        }
+    }
 }

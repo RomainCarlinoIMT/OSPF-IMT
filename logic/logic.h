@@ -34,6 +34,9 @@ std::string get_network_address(const std::string& ip_with_mask);
 std::vector<std::string> get_all_subnets(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb);
 std::vector<std::string> get_all_routers(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb);
 std::vector<std::string> get_all_nodes(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb);
-
+void display_matrix(const std::vector<std::vector<int>>& matrix);
+std::vector<std::vector<int>> create_n_by_n_matrix(int n);
+void add_router_declaration_to_matrix(RouterDeclaration& declaration, std::vector<std::vector<int>>& matrix, std::vector<std::string>& all_nodes );
+void build_matrix_from_lsbd(std::vector<std::vector<int>>& matrix, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, std::vector<std::string>& all_nodes);
 
 #endif // LOGIC_H

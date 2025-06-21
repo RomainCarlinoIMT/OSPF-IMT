@@ -271,7 +271,32 @@ int main() {
     }
 
 
+    std::cout << "\n--- Testing matrix basic functions ---" << std::endl;
 
+    std::vector<std::vector<int>> matrix = create_n_by_n_matrix(3);
+    matrix[0][0] = 1;
+    matrix[0][1] = 2;
+    matrix[0][2] = 3;
+    matrix[1][0] = 4;
+    matrix[1][1] = 5;
+    matrix[1][2] = 6;
+    matrix[2][0] = 7;
+    //matrix[2][1] = 8;
+    matrix[2][2] = 9;
+
+    // display_matrix(matrix);
+
+    std::cout << "\n--- Testing matrix basic functions ---" << std::endl;
+    std::vector<std::vector<int>> matrix2 = create_n_by_n_matrix(all_nodes.size());
+
+    
+    std::cout << "adding R1 ceclaration (saying R1 access 10.0.1.0/24)" << std::endl;
+    for (const std::string& node : all_nodes) {
+        std::cout << node << "\t\t ";
+    }
+    std::cout << std::endl;
+    build_matrix_from_lsbd(matrix2, router_3_lsdb, all_nodes);
+    display_matrix(matrix2);
 
 
 
