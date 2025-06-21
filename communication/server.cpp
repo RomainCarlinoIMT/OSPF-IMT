@@ -16,6 +16,12 @@
 #include <climits>
 #include "../logic/logic.h"
 #include "msg.h"
+#include <netlink/netlink.h>
+#include <netlink/socket.h>
+#include <netlink/route/route.h>
+#include <netlink/route/nexthop.h>
+#include <netlink/route/addr.h>
+
 
 std::map<std::string, std::string> forwardingTable;
 std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb; 
@@ -27,6 +33,163 @@ std::string get_local_hostname() {
         exit(EXIT_FAILURE);
     }
     return std::string(hostname);
+}
+
+void add_route(const std::string& destination, const std::string& nextHop) {
+    struct nl_sock *sock = nl_socket_alloc();
+    if (!sock) {
+        std::cerr << "Failed to allocate netlink socket" << std::endl;
+        return;
+    }
+    if (nl_connect(sock, NETLINK_ROUTE) < 0) {
+        std::cerr << "Failed to connect netlink socket" << std::endl;
+        nl_socket_free(sock);
+        return;
+    }
+
+    struct rtnl_route *route = rtnl_route_alloc();
+    if (!route) {
+        std::cerr << "Failed to allocate route" << std::endl;
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    struct nl_addr *dst_addr = nullptr, *gw_addr = nullptr;
+
+    if (nl_addr_parse(destination.c_str(), AF_INET, &dst_addr) < 0) {
+        std::cerr << "Invalid destination address: " << destination << std::endl;
+        rtnl_route_put(route);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    if (nl_addr_parse(nextHop.c_str(), AF_INET, &gw_addr) < 0) {
+        std::cerr << "Invalid gateway address: " << nextHop << std::endl;
+        nl_addr_put(dst_addr);
+        rtnl_route_put(route);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    rtnl_route_set_family(route, AF_INET);
+    rtnl_route_set_dst(route, dst_addr);
+    // Pas besoin de set la longueur de préfixe, elle est déjà incluse dans dst_addr
+
+    struct rtnl_nexthop *nh = rtnl_route_nh_alloc();
+    if (!nh) {
+        std::cerr << "Failed to allocate nexthop" << std::endl;
+        nl_addr_put(dst_addr);
+        nl_addr_put(gw_addr);
+        rtnl_route_put(route);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    rtnl_route_nh_set_gateway(nh, gw_addr);
+    rtnl_route_add_nexthop(route, nh);
+
+    int err = rtnl_route_add(sock, route, 0);
+    if (err < 0) {
+        std::cerr << "Failed to add route: " << nl_geterror(err) << std::endl;
+    } else {
+        std::cout << "Route added successfully" << std::endl;
+    }
+
+    // Nettoyage
+    nl_addr_put(dst_addr);
+    nl_addr_put(gw_addr);
+    rtnl_route_put(route);
+    nl_close(sock);
+    nl_socket_free(sock);
+}
+
+
+
+// Fonction pour supprimer une route
+void delete_route(const std::string& destination, const std::string& nextHop) {
+    struct nl_sock *sock = nl_socket_alloc();
+    if (!sock) {
+        std::cerr << "Failed to allocate netlink socket" << std::endl;
+        return;
+    }
+    if (nl_connect(sock, NETLINK_ROUTE) < 0) {
+        std::cerr << "Failed to connect netlink socket" << std::endl;
+        nl_socket_free(sock);
+        return;
+    }
+
+    struct rtnl_route *route = rtnl_route_alloc();
+    if (!route) {
+        std::cerr << "Failed to allocate route" << std::endl;
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    struct nl_addr *dst_addr = nullptr, *gw_addr = nullptr;
+
+    if (nl_addr_parse(destination.c_str(), AF_INET, &dst_addr) < 0) {
+        std::cerr << "Invalid destination address: " << destination << std::endl;
+        rtnl_route_put(route);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    if (nl_addr_parse(nextHop.c_str(), AF_INET, &gw_addr) < 0) {
+        std::cerr << "Invalid gateway address: " << nextHop << std::endl;
+        nl_addr_put(dst_addr);
+        rtnl_route_put(route);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    rtnl_route_set_family(route, AF_INET);
+    rtnl_route_set_dst(route, dst_addr);
+
+    struct rtnl_nexthop *nh = rtnl_route_nh_alloc();
+    if (!nh) {
+        std::cerr << "Failed to allocate nexthop" << std::endl;
+        nl_addr_put(dst_addr);
+        nl_addr_put(gw_addr);
+        rtnl_route_put(route);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    rtnl_route_nh_set_gateway(nh, gw_addr);
+    rtnl_route_add_nexthop(route, nh);
+
+    int err = rtnl_route_delete(sock, route, 0);
+    if (err < 0) {
+        if (err == -NLE_OBJ_NOTFOUND) {
+            std::cerr << "Route not found: " << destination << std::endl;
+        } else {
+            std::cerr << "Failed to delete route: " << nl_geterror(err) << std::endl;
+        }
+    } else {
+        std::cout << "Route deleted successfully" << std::endl;
+    }
+
+    // Nettoyage
+    nl_addr_put(dst_addr);
+    nl_addr_put(gw_addr);
+    rtnl_route_put(route);
+    nl_close(sock);
+    nl_socket_free(sock);
+}
+
+
+
+void update_route(const std::string& destination, const std::string& nextHop) {
+    delete_route(destination, nextHop); 
+    add_route(destination, nextHop);
 }
 
 
@@ -265,6 +428,7 @@ void create_server_declaration(const std::vector<std::string>& interfaces, std::
 }
 
 int main() {
+
     // Running variables
     std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
     std::vector<std::string> interfaces;
