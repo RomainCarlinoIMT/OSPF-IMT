@@ -242,8 +242,36 @@ int main() {
         std::cout << "Successfully passed this section !" << std::endl;
 
     } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;    }
+
+    
+    std::cout << "\n--- Testing the extraction of  all the subnet from a lsdb ---" << std::endl;    
+    // Using the router_3_lsdb to avoid recreating an lsdb
+
+    std::vector<std::string> all_subnets = get_all_subnets(router_3_lsdb);
+
+    std::cout << "Subnets found (" << all_subnets.size() << " total):" << std::endl;
+    for (const std::string& subnet : all_subnets) {
+        std::cout << "- " << subnet << std::endl;
     }
+
+    std::vector<std::string> all_routers = get_all_routers(router_3_lsdb);
+
+    std::cout << "Routers found (" << all_routers.size() << " total):" << std::endl;
+    for (const std::string& router : all_routers) {
+        std::cout << "- " << router << std::endl;
+    }
+
+    
+    std::vector<std::string> all_nodes = get_all_nodes(router_3_lsdb);
+
+    std::cout << "Total nodes (" << all_nodes.size() << " total):" << std::endl;
+    for (const std::string& node : all_nodes) {
+        std::cout << "- " << node << std::endl;
+    }
+
+
+
 
 
 

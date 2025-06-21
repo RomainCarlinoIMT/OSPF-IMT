@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 
 // Defining routerDecllaration struc
 struct RouterDeclaration {
@@ -30,6 +31,9 @@ bool add_router_declaration(std::map<std::string, std::map<std::string, RouterDe
 bool cleanup_old_declarations(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, long long threshold_ms);
 void update_lsdb(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& ROUTER_ID);
 std::string get_network_address(const std::string& ip_with_mask);
+std::vector<std::string> get_all_subnets(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb);
+std::vector<std::string> get_all_routers(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb);
+std::vector<std::string> get_all_nodes(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb);
 
 
 #endif // LOGIC_H

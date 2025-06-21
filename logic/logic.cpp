@@ -8,6 +8,7 @@
 #include <sstream> // For std::stringstream
 #include <vector>  // For std::vector
 #include <map>     // For std::map
+#include <set>
 
 
 // Defining routerDecllaration struc
@@ -583,4 +584,67 @@ std::string get_network_address(const std::string& ip_with_mask)
     uint32_t network_int = ip_int & binary_mask;
     std::string network_ip_str = uint_to_ip(network_int);
     return network_ip_str + "/" + mask_bits_str;
+}
+
+std::vector<std::string> get_all_subnets(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb)
+{
+    std::set<std::string> unique_subnets; // This ensure that subnet is only added one time
+    
+    // Iterater lsdb
+    for (const auto& router_entry : local_lsdb)
+    {        
+        for (const auto& declaration_entry : router_entry.second)
+        {
+            try
+            {
+                std::string network_address = get_network_address(declaration_entry.second.ip_with_mask);
+                
+                unique_subnets.insert(network_address);
+            }
+            catch (const std::invalid_argument& e)
+            {
+                std::cerr << "Warning: Could not get network address for " 
+                          << declaration_entry.second.ip_with_mask << ": " << e.what() << std::endl;
+            }
+        }
+    }
+    // this bring back to_a_vector
+    return std::vector<std::string>(unique_subnets.begin(), unique_subnets.end());
+}
+
+std::vector<std::string> get_all_routers(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb)
+{
+    // Ensure that there's not data duplication
+    std::set<std::string> unique_router_names;
+
+    // Iterating the lsdb
+    for (const auto& router_entry : local_lsdb)
+    {
+        // The router id is present as it !
+        unique_router_names.insert(router_entry.first);
+    }
+
+    // Bring it back to an vector which is easier to manipulate
+    return std::vector<std::string>(unique_router_names.begin(), unique_router_names.end());
+}
+
+// Function to get all nodes for Dijkstra
+std::vector<std::string> get_all_nodes(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb)
+{
+    std::vector<std::string> routers = get_all_routers(local_lsdb);
+    std::vector<std::string> subnets = get_all_subnets(local_lsdb);
+
+    std::vector<std::string> all_nodes;
+
+    for (const std::string& router_name : routers)
+    {
+        all_nodes.push_back(router_name);
+    }
+
+    for (const std::string& subnet_address : subnets)
+    {
+        all_nodes.push_back(subnet_address);
+    }
+
+    return all_nodes;
 }
