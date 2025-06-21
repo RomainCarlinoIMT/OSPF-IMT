@@ -10,6 +10,8 @@
 #include <map>     // For std::map
 #include <set>
 #include <bits/stdc++.h>
+#include <queue>
+#include <limits>
 
 
 // Defining routerDecllaration struc
@@ -715,4 +717,59 @@ void build_matrix_from_lsbd(std::vector<std::vector<int>>& matrix,
             add_router_declaration_to_matrix(declaration, matrix, all_nodes);
         }
     }
+}
+
+const int INF = std::numeric_limits<int>::max();
+
+int dijkstraNextHop(const std::vector<std::vector<int>>& adjMatrix, int start, int target) {
+    int n = adjMatrix.size();
+    std::vector<int> dist(n, INF);
+    std::vector<int> parent(n, -1);
+    std::vector<bool> visited(n, false);
+
+    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> pq;
+
+    dist[start] = 0;
+    pq.emplace(0, start);
+
+    while (!pq.empty()) {
+        auto [currentDist, u] = pq.top();
+        pq.pop();
+
+        if (visited[u]) continue;
+        visited[u] = true;
+
+        if (u == target) break;
+
+        for (int v = 0; v < n; ++v) {
+            int weight = adjMatrix[u][v];
+            if (weight != -1 && !visited[v]) {
+                if (dist[u] + weight < dist[v]) {
+                    dist[v] = dist[u] + weight;
+                    parent[v] = u;
+                    pq.emplace(dist[v], v);
+                }
+            }
+        }
+    }
+
+    // Si on n'a jamais atteint le target
+    if (dist[target] == INF)
+        return -1;
+
+    // Reconstruire le chemin de target vers start
+    int current = target;
+    std::vector<int> path;
+    while (current != -1) {
+        path.push_back(current);
+        current = parent[current];
+    }
+
+    std::reverse(path.begin(), path.end());
+
+    // Si le chemin a au moins 2 nœuds, le next hop est le 2e
+    if (path.size() >= 3)
+        return path[2];
+    else
+        return -1; // start == target
 }

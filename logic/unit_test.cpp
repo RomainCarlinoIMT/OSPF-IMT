@@ -299,6 +299,95 @@ int main() {
     display_matrix(matrix2);
 
 
+    std::cout << "\n--- Diskstra test ---" << std::endl;
+
+    std::map<std::string, std::map<std::string, RouterDeclaration>> lsdb_4;
+
+    // Router 1 declarations
+    RouterDeclaration r1_1 = create_router_definition("R1", "10.0.1.1/24", 1);
+    RouterDeclaration r1_2 = create_router_definition("R1", "10.0.2.1/24", 3);
+    add_router_declaration(lsdb_4, r1_1);
+    add_router_declaration(lsdb_4, r1_2);
+
+    // Router 2 declatations
+    RouterDeclaration r2_1 = create_router_definition("R2", "10.0.1.2/24", 1);
+    RouterDeclaration r2_2 = create_router_definition("R2", "10.0.3.1/24", 2);
+    add_router_declaration(lsdb_4, r2_1);
+    add_router_declaration(lsdb_4, r2_2);
+
+    // Router 3 declarations
+    RouterDeclaration r3_1 = create_router_definition("R3", "10.0.2.2/24", 3);
+    RouterDeclaration r3_2 = create_router_definition("R3", "10.0.4.1/24", 2);
+    add_router_declaration(lsdb_4, r3_1);
+    add_router_declaration(lsdb_4, r3_2);
+
+    // Router 4 declarations
+    RouterDeclaration r4_1 = create_router_definition("R4", "10.0.3.2/24", 2);
+    RouterDeclaration r4_2 = create_router_definition("R4", "10.0.4.2/24", 2);
+    add_router_declaration(lsdb_4, r4_1);
+    add_router_declaration(lsdb_4, r4_2);
+
+    debug_known_router(lsdb_4);
+
+    // Create matrix
+    std::vector<std::string> all_nodes_2 = get_all_nodes(lsdb_4);
+    std::vector<std::vector<int>> matrix_3 = create_n_by_n_matrix(all_nodes_2.size());
+
+    build_matrix_from_lsbd(matrix_3, lsdb_4, all_nodes_2);
+    int i = 0;
+    for (const std::string& node : all_nodes_2) {
+        std::cout << node << ":"<<  i << "\t\t ";
+        i++;
+    }
+    std::cout << std::endl;
+    display_matrix(matrix_3);
+
+    int next_hop = dijkstraNextHop(matrix_3, 0, 3);
+    std::cout << "Next hop is: " << next_hop << std::endl;
+
+    std::cout << "\n--- Diskstra test(2)---" << std::endl;
+
+    std::map<std::string, std::map<std::string, RouterDeclaration>> lsdb_5;
+
+    // R5
+    RouterDeclaration r5_1 = create_router_definition("R5", "10.0.1.1/24", 2);
+    add_router_declaration(lsdb_5, r5_1);
+
+    // R6 
+    RouterDeclaration r6_1 = create_router_definition("R6", "10.0.1.2/24", 2);
+    RouterDeclaration r6_2 = create_router_definition("R6", "10.0.2.1/24", 2);
+    add_router_declaration(lsdb_5, r6_1);
+    add_router_declaration(lsdb_5, r6_2);
+
+    // R7
+    RouterDeclaration r7_1 = create_router_definition("R7", "10.0.2.2/24", 2);
+    add_router_declaration(lsdb_5, r7_1);
+
+    debug_known_router(lsdb_5);
+
+    // Create matrix
+    std::vector<std::string> all_nodes_3 = get_all_nodes(lsdb_5);
+    std::vector<std::vector<int>> matrix_4 = create_n_by_n_matrix(all_nodes_3.size());
+
+    build_matrix_from_lsbd(matrix_4, lsdb_5, all_nodes_3);
+    int j = 0;
+    for (const std::string& node : all_nodes_3) {
+        std::cout << node << ":"<<  j << "\t\t ";
+        j++;
+    }
+    std::cout << std::endl;
+    display_matrix(matrix_4);
+
+    int next_hop_2 = dijkstraNextHop(matrix_4, 0, 2);
+    std::cout << "Next hop is: " << next_hop_2 << std::endl;
+    std::cout << "Next hop is: " << all_nodes_3[next_hop_2] << std::endl;
+
+
+
+
+
+
+
 
     std::cout << "\n--- Ends of unit tests ---" << std::endl;
 
