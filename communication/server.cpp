@@ -451,12 +451,18 @@ void on_receive(int sock, std::map<std::string, std::map<std::string, RouterDecl
 
 
 
-void on_update(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID, std::vector<std::string>& interfaces) {
-    // firstly updating lsdb
-    update_lsdb(local_lsdb, LOCAL_ROUTER_ID);
-
+void on_update(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID, std::vector<std::string>& interfaces)
+{
     // Sending all router declarations to all interfaces
     send_all_router_declarations_to_all(local_lsdb, interfaces);
+    std::vector<std::pair<std::string, std::string>> routes = compute_all_routes(LOCAL_ROUTER_ID, local_lsdb);
+    for(const auto& route : routes)
+    {
+        std::cout << "first: " << route.first << " second: " << route.second << std::endl;
+        add_route(route.second, route.first);
+    }
+
+
     std::cout << "Periodic update task executed." << std::endl; // Debug output Note: Remove in production
     debug_known_router(local_lsdb);
 }
