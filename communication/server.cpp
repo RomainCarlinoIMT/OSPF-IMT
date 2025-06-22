@@ -21,6 +21,7 @@
 #include <netlink/route/route.h>
 #include <netlink/route/nexthop.h>
 #include <netlink/route/addr.h>
+#include <netlink/route/link.h>
 
 
 std::map<std::string, std::string> forwardingTable;
@@ -34,80 +35,6 @@ std::string get_local_hostname() {
     }
     return std::string(hostname);
 }
-
-void add_route(const std::string& destination, const std::string& nextHop) {
-    struct nl_sock *sock = nl_socket_alloc();
-    if (!sock) {
-        std::cerr << "Failed to allocate netlink socket" << std::endl;
-        return;
-    }
-    if (nl_connect(sock, NETLINK_ROUTE) < 0) {
-        std::cerr << "Failed to connect netlink socket" << std::endl;
-        nl_socket_free(sock);
-        return;
-    }
-
-    struct rtnl_route *route = rtnl_route_alloc();
-    if (!route) {
-        std::cerr << "Failed to allocate route" << std::endl;
-        nl_close(sock);
-        nl_socket_free(sock);
-        return;
-    }
-
-    struct nl_addr *dst_addr = nullptr, *gw_addr = nullptr;
-
-    if (nl_addr_parse(destination.c_str(), AF_INET, &dst_addr) < 0) {
-        std::cerr << "Invalid destination address: " << destination << std::endl;
-        rtnl_route_put(route);
-        nl_close(sock);
-        nl_socket_free(sock);
-        return;
-    }
-
-    if (nl_addr_parse(nextHop.c_str(), AF_INET, &gw_addr) < 0) {
-        std::cerr << "Invalid gateway address: " << nextHop << std::endl;
-        nl_addr_put(dst_addr);
-        rtnl_route_put(route);
-        nl_close(sock);
-        nl_socket_free(sock);
-        return;
-    }
-
-    rtnl_route_set_family(route, AF_INET);
-    rtnl_route_set_dst(route, dst_addr);
-    // Pas besoin de set la longueur de préfixe, elle est déjà incluse dans dst_addr
-
-    struct rtnl_nexthop *nh = rtnl_route_nh_alloc();
-    if (!nh) {
-        std::cerr << "Failed to allocate nexthop" << std::endl;
-        nl_addr_put(dst_addr);
-        nl_addr_put(gw_addr);
-        rtnl_route_put(route);
-        nl_close(sock);
-        nl_socket_free(sock);
-        return;
-    }
-
-    rtnl_route_nh_set_gateway(nh, gw_addr);
-    rtnl_route_add_nexthop(route, nh);
-
-    int err = rtnl_route_add(sock, route, 0);
-    if (err < 0) {
-        std::cerr << "Failed to add route: " << nl_geterror(err) << std::endl;
-    } else {
-        std::cout << "Route added successfully" << std::endl;
-    }
-
-    // Nettoyage
-    nl_addr_put(dst_addr);
-    nl_addr_put(gw_addr);
-    rtnl_route_put(route);
-    nl_close(sock);
-    nl_socket_free(sock);
-}
-
-
 
 // Fonction pour supprimer une route
 void delete_route(const std::string& destination, const std::string& nextHop) {
@@ -181,6 +108,167 @@ void delete_route(const std::string& destination, const std::string& nextHop) {
     nl_addr_put(dst_addr);
     nl_addr_put(gw_addr);
     rtnl_route_put(route);
+    nl_close(sock);
+    nl_socket_free(sock);
+}
+
+// Fonction pour ajouter une route avec suppression de toutes les routes existantes pour la même destination
+void add_route(const std::string& destination, const std::string& nextHop) {
+    struct nl_sock *sock = nl_socket_alloc();
+    if (!sock) {
+        std::cerr << "Failed to allocate netlink socket" << std::endl;
+        return;
+    }
+    if (nl_connect(sock, NETLINK_ROUTE) < 0) {
+        std::cerr << "Failed to connect netlink socket" << std::endl;
+        nl_socket_free(sock);
+        return;
+    }
+
+    struct nl_addr *dst_addr = nullptr, *gw_addr = nullptr;
+
+    if (nl_addr_parse(destination.c_str(), AF_INET, &dst_addr) < 0) {
+        std::cerr << "Invalid destination address: " << destination << std::endl;
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    if (nl_addr_parse(nextHop.c_str(), AF_INET, &gw_addr) < 0) {
+        std::cerr << "Invalid gateway address: " << nextHop << std::endl;
+        nl_addr_put(dst_addr);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    // Supprimer les routes existantes pour cette destination (optionnel)
+    struct nl_cache *route_cache = nullptr;
+    if (rtnl_route_alloc_cache(sock, AF_INET, 0, &route_cache) < 0) {
+        std::cerr << "Failed to allocate route cache. Proceeding without deleting existing routes." << std::endl;
+        route_cache = nullptr;
+    }
+
+    if (route_cache) {
+        for (struct nl_object *obj = nl_cache_get_first(route_cache); obj != nullptr; obj = nl_cache_get_next(obj)) {
+            struct rtnl_route *existing_route = (struct rtnl_route *)obj;
+            struct nl_addr *existing_dst = rtnl_route_get_dst(existing_route);
+            if (existing_dst && nl_addr_cmp(existing_dst, dst_addr) == 0) {
+                int del_err = rtnl_route_delete(sock, existing_route, 0);
+                if (del_err < 0 && del_err != -NLE_OBJ_NOTFOUND) {
+                    std::cerr << "Failed to delete existing route: " << nl_geterror(del_err) << std::endl;
+                }
+            }
+        }
+    }
+
+    // Trouver l'interface sur le même réseau que la gateway
+    struct nl_cache *link_cache = nullptr;
+    if (rtnl_link_alloc_cache(sock, AF_UNSPEC, &link_cache) < 0) {
+        std::cerr << "Failed to allocate link cache" << std::endl;
+        if (route_cache) nl_cache_free(route_cache);
+        nl_addr_put(dst_addr);
+        nl_addr_put(gw_addr);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    int ifindex = 0;
+    struct nl_object *link_obj = nullptr;
+    for (link_obj = nl_cache_get_first(link_cache); link_obj != nullptr; link_obj = nl_cache_get_next(link_obj)) {
+        struct rtnl_link *link = (struct rtnl_link *)link_obj;
+        int link_ifindex = rtnl_link_get_ifindex(link);
+
+        // Récupérer les adresses IPv4 associées à cette interface
+        struct nl_cache *addr_cache = nullptr;
+        if (rtnl_addr_alloc_cache(sock, &addr_cache) < 0) continue;
+
+        for (struct nl_object *addr_obj = nl_cache_get_first(addr_cache); addr_obj != nullptr; addr_obj = nl_cache_get_next(addr_obj)) {
+            struct rtnl_addr *addr = (struct rtnl_addr *)addr_obj;
+            if (rtnl_addr_get_ifindex(addr) != link_ifindex) continue;
+
+            struct nl_addr *local_addr = rtnl_addr_get_local(addr);
+            if (!local_addr || nl_addr_get_family(local_addr) != AF_INET) continue;
+
+            // Calculer le masque réseau pour cette adresse
+            int prefixlen = rtnl_addr_get_prefixlen(addr);
+
+            // Vérifier si la gateway est dans ce subnet
+            if (nl_addr_get_family(gw_addr) != AF_INET) continue;
+
+            // Appliquer le masque sur les adresses pour comparer le réseau
+            unsigned char gw_buf[4], local_buf[4];
+            memcpy(gw_buf, nl_addr_get_binary_addr(gw_addr), 4);
+            memcpy(local_buf, nl_addr_get_binary_addr(local_addr), 4);
+
+            uint32_t gw_ip = ntohl(*((uint32_t*)gw_buf));
+            uint32_t local_ip = ntohl(*((uint32_t*)local_buf));
+            uint32_t mask = prefixlen == 0 ? 0 : (~0u << (32 - prefixlen));
+
+            if ((gw_ip & mask) == (local_ip & mask)) {
+                ifindex = link_ifindex;
+                nl_cache_free(addr_cache);
+                goto found_interface; // on sort des boucles
+            }
+        }
+        nl_cache_free(addr_cache);
+    }
+
+found_interface:
+    if (ifindex == 0) {
+        std::cerr << "No interface found on the same network as gateway " << nextHop << std::endl;
+        nl_cache_free(link_cache);
+        if (route_cache) nl_cache_free(route_cache);
+        nl_addr_put(dst_addr);
+        nl_addr_put(gw_addr);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+    nl_cache_free(link_cache);
+
+    // Créer la route et ajouter nexthop avec ifindex et gateway
+    struct rtnl_route *route = rtnl_route_alloc();
+    if (!route) {
+        std::cerr << "Failed to allocate route" << std::endl;
+        nl_addr_put(dst_addr);
+        nl_addr_put(gw_addr);
+        if (route_cache) nl_cache_free(route_cache);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+    rtnl_route_set_family(route, AF_INET);
+    rtnl_route_set_dst(route, dst_addr);
+
+    struct rtnl_nexthop *nh = rtnl_route_nh_alloc();
+    if (!nh) {
+        std::cerr << "Failed to allocate nexthop" << std::endl;
+        nl_addr_put(dst_addr);
+        nl_addr_put(gw_addr);
+        rtnl_route_put(route);
+        if (route_cache) nl_cache_free(route_cache);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+    rtnl_route_nh_set_gateway(nh, gw_addr);
+    rtnl_route_nh_set_ifindex(nh, ifindex);
+    rtnl_route_add_nexthop(route, nh);
+
+    int err = rtnl_route_add(sock, route, 0);
+    if (err < 0) {
+        std::cerr << "Failed to add route: " << nl_geterror(err) << std::endl;
+    } else {
+        std::cout << "Route added successfully" << std::endl;
+    }
+
+    // Nettoyage
+    nl_addr_put(dst_addr);
+    nl_addr_put(gw_addr);
+    rtnl_route_put(route);
+    if (route_cache) nl_cache_free(route_cache);
     nl_close(sock);
     nl_socket_free(sock);
 }
@@ -428,6 +516,15 @@ void create_server_declaration(const std::vector<std::string>& interfaces, std::
 }
 
 int main() {
+
+
+    add_route("123.123.0.0/24", "192.168.2.1");
+    add_route("123.123.0.0/24", "192.168.2.2");
+    add_route("123.123.0.0/24", "192.168.2.3");
+    add_route("123.123.0.0/24", "192.168.2.4");
+    add_route("123.123.0.0/24", "192.168.2.20");
+    add_route("123.124.0.0/24", "10.0.0.2");
+    add_route("192.159.0.0/24", "10.2.0.2");
 
     // Running variables
     std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
