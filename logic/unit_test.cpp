@@ -386,15 +386,15 @@ int main() {
     std::cout << "Next hop is: " << all_nodes_3[next_hop_2] << " on " << next_router_ip <<std::endl;
     
 
+    std::cout << "\n--- Testing the compute of all subnets at once ---" << std::endl;
 
-
-
-
-
-
+    std::cout << "From R5 :" << std::endl;
+    compute_all_routes("R5", lsdb_5);
+    std::cout << "From R6:" << std::endl;
+    compute_all_routes("R6", lsdb_5);
+    std::cout << "From R7:" << std::endl;
+    compute_all_routes("R7", lsdb_5);
 
     std::cout << "\n--- Ends of unit tests ---" << std::endl;
-
-    printf("\n\n ========== TEMPORARY TEST REMOVE IN PROD !!!\n\n");
     return 0;
 }

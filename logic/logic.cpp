@@ -797,5 +797,41 @@ std::string get_router_ip_on_network(std::string& router_name, std::string& netw
 
     // This never should happend !!!
     return "";
+}
 
+
+void compute_all_routes(std::string actual_router, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb)
+{
+    std::vector<std::string> all_nodes = get_all_nodes(local_lsdb);
+    std::vector<std::string> all_subnets = get_all_subnets(local_lsdb);
+    std::vector<std::vector<int>> matrix = create_n_by_n_matrix(all_nodes.size());
+
+    build_matrix_from_lsbd(matrix, local_lsdb, all_nodes);
+
+    auto it_1 = std::find(all_nodes.begin(), all_nodes.end(), actual_router);
+    int routeur_id = std::distance(all_nodes.begin(), it_1);
+
+    
+
+    for(const std::string& destination_subnet : all_subnets)
+    {
+        auto it_2 = std::find(all_nodes.begin(), all_nodes.end(), destination_subnet);
+        int subnet_id = std::distance(all_nodes.begin(), it_2);    
+
+        std::pair<int, int> dijkstra_res = dijkstraNextHop(matrix, routeur_id, subnet_id);
+
+        if(dijkstra_res.first != -1)
+        {
+            std::string nexthop_subnet = all_nodes[dijkstra_res.first];
+            std::string nexthop_routeur_name = all_nodes[dijkstra_res.second];
+
+            std::string next_router_ip = get_router_ip_on_network(nexthop_routeur_name, nexthop_subnet, local_lsdb);
+
+            std::cout << "To reach : " << destination_subnet << " use " << next_router_ip << std::endl; 
+        }
+        else
+        {
+            std::cout << "To reach : " << destination_subnet << " it's directly connected ! " << std::endl; 
+        }        
+    }
 }
