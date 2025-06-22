@@ -800,11 +800,13 @@ std::string get_router_ip_on_network(std::string& router_name, std::string& netw
 }
 
 
-void compute_all_routes(std::string actual_router, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb)
+std::vector<std::pair<std::string, std::string>> compute_all_routes(std::string actual_router, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb)
 {
     std::vector<std::string> all_nodes = get_all_nodes(local_lsdb);
     std::vector<std::string> all_subnets = get_all_subnets(local_lsdb);
     std::vector<std::vector<int>> matrix = create_n_by_n_matrix(all_nodes.size());
+
+    std::vector<std::pair<std::string, std::string>> res;
 
     build_matrix_from_lsbd(matrix, local_lsdb, all_nodes);
 
@@ -826,12 +828,18 @@ void compute_all_routes(std::string actual_router, std::map<std::string, std::ma
             std::string nexthop_routeur_name = all_nodes[dijkstra_res.second];
 
             std::string next_router_ip = get_router_ip_on_network(nexthop_routeur_name, nexthop_subnet, local_lsdb);
+            size_t slash_pos = next_router_ip.find("/");
+            next_router_ip = next_router_ip.substr(0, slash_pos);
 
-            std::cout << "To reach : " << destination_subnet << " use " << next_router_ip << std::endl; 
+            std::cout << "To reach : " << destination_subnet << " use " << next_router_ip << std::endl;            
+            res.push_back({next_router_ip, destination_subnet});
+
         }
         else
         {
             std::cout << "To reach : " << destination_subnet << " it's directly connected ! " << std::endl; 
         }        
     }
+
+    return res;
 }

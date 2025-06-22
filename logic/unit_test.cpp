@@ -393,7 +393,14 @@ int main() {
     std::cout << "From R6:" << std::endl;
     compute_all_routes("R6", lsdb_5);
     std::cout << "From R7:" << std::endl;
-    compute_all_routes("R7", lsdb_5);
+    std::vector<std::pair<std::string, std::string>> test_return = compute_all_routes("R7", lsdb_5);
+
+    std::cout << "Testing the datastructure returned" << std::endl;
+
+    for(const auto& route : test_return)
+    {
+        std::cout << "first: " << route.first << " second: " << route.second << std::endl;
+    }
 
     std::cout << "\n--- Ends of unit tests ---" << std::endl;
     return 0;
