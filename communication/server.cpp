@@ -553,16 +553,6 @@ void create_server_declaration(const std::vector<std::string>& interfaces, std::
 }
 
 int main() {
-
-
-    add_route("123.123.0.0/24", "192.168.2.1");
-    add_route("123.123.0.0/24", "192.168.2.2");
-    add_route("123.123.0.0/24", "192.168.2.3");
-    add_route("123.123.0.0/24", "192.168.2.4");
-    add_route("123.123.0.0/24", "192.168.2.20");
-    add_route("123.124.0.0/24", "10.0.0.2");
-    add_route("192.159.0.0/24", "10.2.0.2");
-
     // Running variables
     std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
     std::vector<std::string> interfaces;
