@@ -843,3 +843,70 @@ std::vector<std::pair<std::string, std::string>> compute_all_routes(std::string 
 
     return res;
 }
+
+std::string display_neighbor_routers(const std::string& actual_router_name,
+                                     const std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb) {
+    
+    std::stringstream ss; // Create the string stream
+
+    ss << "\n--- Router neightbors '" << actual_router_name << "' ---" << std::endl;
+
+    // Get all the subnets connecter to this routeur
+    std::set<std::string> actual_router_connected_subnets;
+    auto it_actual_router_lsas = local_lsdb.find(actual_router_name);
+
+    if (it_actual_router_lsas == local_lsdb.end()) {
+        ss << "This router '" << actual_router_name << "' doesn't exists in lsdb !!!!" << std::endl;
+        ss << "------------------------------------------" << std::endl;
+        return ss.str(); // Quick return to avoid bugs
+    }
+
+    // Iterate all router definition to extract subnets
+    for (const auto& ip_decl_pair : it_actual_router_lsas->second) {
+        const RouterDeclaration& declaration = ip_decl_pair.second;
+        actual_router_connected_subnets.insert(get_network_address(declaration.ip_with_mask));
+    }
+
+    if (actual_router_connected_subnets.empty()) {
+        ss << "This router '" << actual_router_name << "' isn't connected to any subnets !." << std::endl;
+        ss << "------------------------------------------" << std::endl;
+        return ss.str(); // This is the end
+    }
+
+    // Iterate all other routeurs to see if they have common subnets
+    std::set<std::string> neighbor_routers; // Using it to avoid duplicates
+
+    for (const auto& router_entry : local_lsdb) {
+        const std::string& current_lsdb_router_name = router_entry.first;
+
+        // Avoiding the to test itself !
+        if (current_lsdb_router_name == actual_router_name) {
+            continue;
+        }
+
+        // Iterate informations 
+        for (const auto& ip_decl_pair : router_entry.second) {
+            const RouterDeclaration& declaration = ip_decl_pair.second;
+            std::string declared_network_address = get_network_address(declaration.ip_with_mask);
+
+            // test if they have at leat one subnet in common
+            if (actual_router_connected_subnets.count(declared_network_address)) {
+                neighbor_routers.insert(current_lsdb_router_name);
+                break; // No need to test more for this router
+            }
+        }
+    }
+
+    // Display stuff (into the stringstream)
+    if (neighbor_routers.empty()) {
+        ss << "No neightbors founds !" << std::endl;
+    } else {
+        ss << "Neightbors list :" << std::endl;
+        for (const std::string& neighbor : neighbor_routers) {
+            ss << "- " << neighbor << std::endl;
+        }
+    }
+    ss << "------------------------------------------" << std::endl;
+
+    return ss.str(); // Good case return
+}

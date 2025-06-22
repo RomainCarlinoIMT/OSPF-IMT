@@ -402,6 +402,13 @@ int main() {
         std::cout << "first: " << route.first << " second: " << route.second << std::endl;
     }
 
+    std::cout << "\n--- Testing the display of neightbor---" << std::endl;
+    std::cout << display_neighbor_routers("R5", lsdb_5) << std::endl;
+    std::cout << display_neighbor_routers("R6", lsdb_5) << std::endl;
+    std::cout << display_neighbor_routers("R7", lsdb_5) << std::endl;
+   
+
+
     std::cout << "\n--- Ends of unit tests ---" << std::endl;
     return 0;
 }

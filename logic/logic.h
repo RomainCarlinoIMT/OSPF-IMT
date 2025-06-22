@@ -41,5 +41,5 @@ void build_matrix_from_lsbd(std::vector<std::vector<int>>& matrix, std::map<std:
 std::pair<int, int> dijkstraNextHop(const std::vector<std::vector<int>>& adjMatrix, int start, int target);
 std::string get_router_ip_on_network(std::string& router_name, std::string& network_address, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb);
 std::vector<std::pair<std::string, std::string>> compute_all_routes(std::string actual_router, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb);
-
+std::string display_neighbor_routers(const std::string& actual_router_name, const std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb);
 #endif // LOGIC_H
