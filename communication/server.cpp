@@ -455,6 +455,8 @@ void on_update(std::map<std::string, std::map<std::string, RouterDeclaration>>& 
 {
     // Sending all router declarations to all interfaces
     send_all_router_declarations_to_all(local_lsdb, interfaces);
+    update_lsdb(local_lsdb, LOCAL_ROUTER_ID);
+
     std::vector<std::pair<std::string, std::string>> routes = compute_all_routes(LOCAL_ROUTER_ID, local_lsdb);
     for(const auto& route : routes)
     {
