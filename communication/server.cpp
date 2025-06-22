@@ -112,6 +112,83 @@ void delete_route(const std::string& destination, const std::string& nextHop) {
     nl_socket_free(sock);
 }
 
+// Callback pour supprimer les routes indirectes
+int route_delete_callback(struct nl_msg *msg, void *arg) {
+    struct nlmsghdr *nlh = nlmsg_hdr(msg);
+    struct rtnl_route *route = (struct rtnl_route *)nlmsg_data(nlh);
+
+    struct nl_sock *sock = (struct nl_sock *)arg;
+
+    // Vérifier si la route a une gateway (donc pas un voisin direct)
+    struct rtnl_nexthop *nh = rtnl_route_nexthop_n(route, 0);
+    if (nh != nullptr && rtnl_route_nh_get_gateway(nh) != nullptr) {
+        // Supprimer la route car elle a une gateway
+        int err = rtnl_route_delete(sock, route, 0);
+        if (err < 0) {
+            std::cerr << "Erreur suppression: " << nl_geterror(err) << std::endl;
+        } else {
+            std::cout << "Route supprimée." << std::endl;
+        }
+    } else {
+        std::cout << "Route conservée (voisin direct)." << std::endl;
+    }
+
+    return NL_OK;
+}
+
+void delete_indirect_routes() {
+    struct nl_sock *sock = nl_socket_alloc();
+    if (!sock) {
+        std::cerr << "Erreur allocation socket" << std::endl;
+        return;
+    }
+
+    if (nl_connect(sock, NETLINK_ROUTE) < 0) {
+        std::cerr << "Erreur connexion socket" << std::endl;
+        nl_socket_free(sock);
+        return;
+    }
+
+    struct rtnl_route *filter = rtnl_route_alloc();
+    rtnl_route_set_family(filter, AF_INET);
+
+    struct nl_cache *route_cache;
+    if (rtnl_route_alloc_cache(sock, AF_INET, 0, &route_cache) < 0) {
+        std::cerr << "Erreur chargement cache route" << std::endl;
+        rtnl_route_put(filter);
+        nl_close(sock);
+        nl_socket_free(sock);
+        return;
+    }
+
+    std::cout << "🔧 Suppression des routes avec une gateway (routes indirectes)..." << std::endl;
+
+    nl_cache_foreach(route_cache, [](struct nl_object *obj, void *arg) {
+        struct rtnl_route *route = (struct rtnl_route *)obj;
+
+        // Vérifier si la route a une gateway
+        struct rtnl_nexthop *nh = rtnl_route_nexthop_n(route, 0);
+        if (nh != nullptr && rtnl_route_nh_get_gateway(nh) != nullptr) {
+            // Supprimer la route car elle a une gateway
+            int err = rtnl_route_delete((struct nl_sock *)arg, route, 0);
+            if (err < 0) {
+                std::cerr << "Erreur suppression: " << nl_geterror(err) << std::endl;
+            } else {
+                std::cout << "Route supprimée." << std::endl;
+            }
+        } else {
+            std::cout << "Route conservée (voisin direct)." << std::endl;
+        }
+    }, sock);
+
+    nl_cache_free(route_cache);
+    rtnl_route_put(filter);
+    nl_close(sock);
+    nl_socket_free(sock);
+
+    std::cout << "Suppression terminée." << std::endl;
+}
+
 // Fonction pour ajouter une route avec suppression de toutes les routes existantes pour la même destination
 void add_route(const std::string& destination, const std::string& nextHop) {
     struct nl_sock *sock = nl_socket_alloc();
@@ -553,6 +630,8 @@ void create_server_declaration(const std::vector<std::string>& interfaces, std::
 }
 
 int main() {
+
+    delete_indirect_routes();
     // Running variables
     std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
     std::vector<std::string> interfaces;
