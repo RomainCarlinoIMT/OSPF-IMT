@@ -513,6 +513,35 @@ void debug_output_ips(const std::vector<std::string>& interfaces) {
     }
 }
 
+void read_config_file_mask(const std::string& filename, std::vector<std::string>& interfaces) {
+    // This function should read the configuration file and populate the interfaces vector
+    std::vector<std::string> config_interfaces;
+    std::ifstream config_file(filename);
+    if (!config_file.is_open())
+    {
+        throw std::runtime_error("Could not open configuration file:");
+    }
+
+    // Assume that user will provide a file with one interface per line
+    std::string line;
+    while (std::getline(config_file, line)) {
+        if (!line.empty() && line[0] != '#') {
+            // Test if the line is a valid ip with mask
+            if(assert_ip_and_mask(line)) {
+                    interfaces.push_back(line);
+                
+            } else {
+                std::cerr << "Invalid interface format in config file: " << line << "\n";
+            }
+        }
+    }
+    
+    config_file.close();
+    if (interfaces.empty()) {
+        throw std::runtime_error("No interfaces found in configuration file.");
+    }    
+}
+
 void create_server_declaration(const std::vector<std::string>& interfaces, std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID) {
     for(const auto& iface : interfaces)
     {
@@ -536,6 +565,7 @@ int main() {
     std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
     std::vector<std::string> interfaces;
     std::string LOCAL_ROUTER_ID = get_local_hostname();
+    std::vector<std::string> interfaces_with_mask;
 
     // Read configuration file to get interfaces and debug output
     try {
@@ -546,8 +576,18 @@ int main() {
     }
     debug_output_ips(interfaces);
 
+    // Read configuration file to get interfaces and debug output
+    try {
+        read_config_file_mask("config", interfaces_with_mask);
+    } catch (const std::exception& ex) {
+        std::cerr << "Error reading configuration file: " << ex.what() << std::endl;
+        return 1;
+    }
+
+
+
     // Create default lsdb with is own declaration
-    create_server_declaration(interfaces, local_lsdb, LOCAL_ROUTER_ID);
+    create_server_declaration(interfaces_with_mask, local_lsdb, LOCAL_ROUTER_ID);
     debug_known_router(local_lsdb); // Fror debug purpose Note: Remove in production
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
