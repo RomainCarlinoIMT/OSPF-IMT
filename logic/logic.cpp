@@ -424,63 +424,57 @@ bool add_router_declaration(std::map<std::string, std::map<std::string, RouterDe
     return false; // No update made
 }
 
-bool cleanup_old_declarations(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, long long threshold_ms)
+bool cleanup_old_declarations(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, long long threshold_ms) 
 {
     bool cleaned = false;
     long long current_time = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()
     ).count();
 
-    // Print current time and threshold for debugging
-    printf("CLEANUP_DEBUG: Starting cleanup at %lld ms, threshold: %lld ms\n", current_time, threshold_ms);
+    // Create the vector to store routers to remove
+    std::vector<std::string> routers_to_remove;
 
     auto router_it = local_lsdb.begin();
     while(router_it != local_lsdb.end())
     {
-        std::string current_router_id = router_it->first;
+        std::string router_name = router_it->first;
         std::map<std::string, RouterDeclaration>& router_links_map = router_it->second;
-
-        printf("CLEANUP_DEBUG: Processing router: %s\n", current_router_id.c_str());
 
         auto link_it = router_links_map.begin();
         while(link_it != router_links_map.end())
         {
             const RouterDeclaration& declaration = link_it->second;
-            long long declaration_age = current_time - declaration.timestamp;
 
-            printf("CLEANUP_DEBUG:   Link: %s, Timestamp: %lld, Current Age: %lld ms\n",
-                   declaration.ip_with_mask.c_str(), declaration.timestamp, declaration_age);
+           long long declaration_age = current_time - declaration.timestamp;
 
-            if(declaration_age > threshold_ms)
+            if(declaration_age > threshold_ms) 
             {
-                printf("CLEANUP_DEBUG:     >>> Removing old declaration for Router: %s, Link: %s (Age %lld > Threshold %lld)\n",
-                       current_router_id.c_str(), declaration.ip_with_mask.c_str(), declaration_age, threshold_ms);
+                // If the declaration is older than the threshold, remove it
                 link_it = router_links_map.erase(link_it); // Erase returns the next iterator
-                cleaned = true;
-            }
-            else
+                cleaned = true; // Mark that we cleaned something
+            } 
+            else 
             {
-                printf("CLEANUP_DEBUG:     --- Keeping declaration for Router: %s, Link: %s (Age %lld <= Threshold %lld)\n",
-                       current_router_id.c_str(), declaration.ip_with_mask.c_str(), declaration_age, threshold_ms);
-                ++link_it;
+                ++link_it; // Move to the next link
             }
         }
 
-        // After checking all links for this router, check if the router_links_map is empty
-        if(router_links_map.empty())
+        // If the router has no links left, remove the router itself
+        if(router_links_map.empty()) 
         {
-            printf("CLEANUP_DEBUG:   <<< Removing router %s from LSDB (no remaining declarations).\n", current_router_id.c_str());
-            router_it = local_lsdb.erase(router_it); // Erase returns the next iterator for the outer map
-            cleaned = true;
-        }
-        else
-        {
-            printf("CLEANUP_DEBUG:   Router %s still has %zu active links.\n", current_router_id.c_str(), router_links_map.size());
-            ++router_it; // Only advance if no erase happened for the outer map
-        }
+            routers_to_remove.push_back(router_name); // Store the router name to remove later
+            router_it = local_lsdb.erase(router_it); // Erase returns the next iterator
+        } 
+        ++router_it; // Move to the next router
     }
-    printf("CLEANUP_DEBUG: Cleanup finished. Cleaned something: %s\n", cleaned ? "true" : "false");
-    return cleaned;
+    
+    // Remove routers that have no links left
+    for(const std::string& router_name : routers_to_remove) 
+    {
+        local_lsdb.erase(router_name); // Remove the router from the local_lsdb
+        cleaned = true; // Mark that we cleaned something
+    }
+    return cleaned; // Return true if any declarations were cleaned up
 }
 
 
