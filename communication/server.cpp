@@ -631,7 +631,6 @@ void create_server_declaration(const std::vector<std::string>& interfaces, std::
 
 int main() {
 
-    delete_indirect_routes();
     // Running variables
     std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb;
     std::vector<std::string> interfaces;
