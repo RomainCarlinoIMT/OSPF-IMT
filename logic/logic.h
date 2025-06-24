@@ -15,9 +15,9 @@ struct RouterDeclaration {
     bool operator==(const RouterDeclaration& other) const 
     {
         return (router_name == other.router_name &&
-                ip_with_mask == other.ip_with_mask &&
-                link_cost == other.link_cost &&
-                timestamp == other.timestamp);
+                ip_with_mask == other.ip_with_mask);
+                // link_cost == other.link_cost &&
+                //timestamp == other.timestamp
     }
 };
 
