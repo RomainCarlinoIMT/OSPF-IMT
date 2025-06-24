@@ -191,6 +191,15 @@ void delete_indirect_routes() {
 
 // Fonction pour ajouter une route avec suppression de toutes les routes existantes pour la même destination
 void add_route(const std::string& destination, const std::string& nextHop) {
+    if (destination.empty()) {
+        std::cerr << "Cannot add route: destination address is empty." << std::endl;
+        return;
+    }
+    if (nextHop.empty()) {
+        std::cerr << "Cannot add route: next hop address is empty." << std::endl;
+        return;
+    }
+
     struct nl_sock *sock = nl_socket_alloc();
     if (!sock) {
         std::cerr << "Failed to allocate netlink socket" << std::endl;
@@ -204,6 +213,7 @@ void add_route(const std::string& destination, const std::string& nextHop) {
 
     struct nl_addr *dst_addr = nullptr, *gw_addr = nullptr;
 
+    // These calls are now protected by the checks above
     if (nl_addr_parse(destination.c_str(), AF_INET, &dst_addr) < 0) {
         std::cerr << "Invalid destination address: " << destination << std::endl;
         nl_close(sock);
@@ -213,7 +223,7 @@ void add_route(const std::string& destination, const std::string& nextHop) {
 
     if (nl_addr_parse(nextHop.c_str(), AF_INET, &gw_addr) < 0) {
         std::cerr << "Invalid gateway address: " << nextHop << std::endl;
-        nl_addr_put(dst_addr);
+        nl_addr_put(dst_addr); // Don't forget to free dst_addr if it was successfully parsed
         nl_close(sock);
         nl_socket_free(sock);
         return;
@@ -527,25 +537,28 @@ void on_receive(int sock, std::map<std::string, std::map<std::string, RouterDecl
 
 
 
-
+// Corrected on_update function:
 void on_update(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID, std::vector<std::string>& interfaces)
 {
-    // Sending all router declarations to all interfaces
-    send_all_router_declarations_to_all(local_lsdb, interfaces);
+    // 1. Update own router's declarations (this includes calling cleanup_old_declarations)
+    //    This sets fresh timestamps for YOUR declarations in local_lsdb.
     update_lsdb(local_lsdb, LOCAL_ROUTER_ID);
 
+    // 2. Now send all router declarations (your own will have fresh timestamps)
+    send_all_router_declarations_to_all(local_lsdb, interfaces);
+
+    // 3. Re-compute and apply routes based on the potentially updated LSDB
     std::vector<std::pair<std::string, std::string>> routes = compute_all_routes(LOCAL_ROUTER_ID, local_lsdb);
     for(const auto& route : routes)
     {
-        std::cout << "first: " << route.first << " second: " << route.second << std::endl;
+        // Consider if you need to delete_indirect_routes() here first
+        // before adding new routes, to ensure consistency.
         add_route(route.second, route.first);
     }
 
-
-    std::cout << "Periodic update task executed." << std::endl; // Debug output Note: Remove in production
+    std::cout << "Periodic update task executed." << std::endl;
     debug_known_router(local_lsdb);
 }
-
 
 void read_config_file(const std::string& filename, std::vector<std::string>& interfaces) {
     // This function should read the configuration file and populate the interfaces vector

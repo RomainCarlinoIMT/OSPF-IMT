@@ -257,20 +257,15 @@ RouterDeclaration create_router_definition(std::string router_name, std::string 
     return routerDeclaration;
 }
 
-std::string serialize_router_definition(RouterDeclaration router_declaration) 
+// Corrected serialize_router_definition
+std::string serialize_router_definition(const RouterDeclaration& router_declaration)
 {
     std::string definition;
-
-    // Getting the actuall timestamp in miliseonds to string
-    long long timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()
-    ).count();
-    
-    definition += "{1," + router_declaration.router_name + "," + router_declaration.ip_with_mask + "," + 
+    definition += "{1," + router_declaration.router_name + "," + router_declaration.ip_with_mask + "," +
                   std::to_string(router_declaration.link_cost) + "," + std::to_string(router_declaration.timestamp) + "}";
-    
     return definition;
 }
+
 
 RouterDeclaration deserialize_router_definition(const std::string& definition) 
 {
@@ -330,31 +325,17 @@ RouterDeclaration deserialize_router_definition(const std::string& definition)
     return declaration;
 }
 
-bool is_router_declaration_newer(RouterDeclaration& existing, RouterDeclaration& new_declaration) 
+// Corrected is_router_declaration_newer
+bool is_router_declaration_newer(const RouterDeclaration& existing, const RouterDeclaration& new_declaration)
 {
-    // Note don't check if this is the same packer type, because other can't fit in RouterDeclaration
-
-    if(existing == new_declaration) 
-    {
-        return false; // Same declaration, no need to update
-    }
-
-    // Assert if all fields are the same except timestamp
-    if (existing.router_name != new_declaration.router_name ||
+  if (existing.router_name != new_declaration.router_name ||
         existing.ip_with_mask != new_declaration.ip_with_mask ||
         existing.link_cost != new_declaration.link_cost)
-    {        
-        return false; // Not the same router name or IP or link cost
-    }
-
-    // If we reach here, it means the router name, IP and link cost are the same, but the timestamp is different
-    if (new_declaration.timestamp <= existing.timestamp)
     {
-        // printf("New declaration is not newer than the existing one.\n");
-        return false; // New declaration is not newer than the existing one
+     return false;
     }
 
-    return true; // New declaration is newer than the existing one
+    return new_declaration.timestamp > existing.timestamp; // Only newer timestamp matters
 }
 
 void debug_known_router(std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb)
@@ -424,20 +405,18 @@ bool add_router_declaration(std::map<std::string, std::map<std::string, RouterDe
     return false; // No update made
 }
 
-bool cleanup_old_declarations(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, long long threshold_ms) 
+bool cleanup_old_declarations(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, long long threshold_ms)
 {
     bool cleaned = false;
     long long current_time = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()
     ).count();
 
-    // Create the vector to store routers to remove
-    std::vector<std::string> routers_to_remove;
-
     auto router_it = local_lsdb.begin();
     while(router_it != local_lsdb.end())
     {
-        std::string router_name = router_it->first;
+        std::string router_name = router_it->first; // Copie du nom du routeur AVANT une potentielle suppression
+        // Il est plus sûr d'obtenir une référence à la carte interne pour la modifier
         std::map<std::string, RouterDeclaration>& router_links_map = router_it->second;
 
         auto link_it = router_links_map.begin();
@@ -445,38 +424,31 @@ bool cleanup_old_declarations(std::map<std::string, std::map<std::string, Router
         {
             const RouterDeclaration& declaration = link_it->second;
 
-           long long declaration_age = current_time - declaration.timestamp;
+            long long declaration_age = current_time - declaration.timestamp;
 
-            if(declaration_age > threshold_ms) 
+            if(declaration_age > threshold_ms)
             {
-                // If the declaration is older than the threshold, remove it
-                link_it = router_links_map.erase(link_it); // Erase returns the next iterator
-                cleaned = true; // Mark that we cleaned something
-            } 
-            else 
+                // Si la déclaration est plus ancienne que le seuil, la supprimer
+                link_it = router_links_map.erase(link_it); // Erase retourne le prochain itérateur valide
+                cleaned = true;
+            }
+            else
             {
-                ++link_it; // Move to the next link
+                ++link_it; // Passer au lien suivant
             }
         }
-
-        // If the router has no links left, remove the router itself
-        if(router_links_map.empty()) 
+        if(router_links_map.empty())
         {
-            routers_to_remove.push_back(router_name); // Store the router name to remove later
-            router_it = local_lsdb.erase(router_it); // Erase returns the next iterator
-        } 
-        ++router_it; // Move to the next router
+            router_it = local_lsdb.erase(router_it); 
+            cleaned = true; 
+        }
+        else
+        {
+            ++router_it; 
+        }
     }
-    
-    // Remove routers that have no links left
-    for(const std::string& router_name : routers_to_remove) 
-    {
-        local_lsdb.erase(router_name); // Remove the router from the local_lsdb
-        cleaned = true; // Mark that we cleaned something
-    }
-    return cleaned; // Return true if any declarations were cleaned up
+    return cleaned;
 }
-
 
 void update_lsdb(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, 
                  const std::string& ROUTER_ID) 

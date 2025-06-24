@@ -12,7 +12,7 @@ struct RouterDeclaration {
     int link_cost; // Cost of the link to this router
     long long timestamp; // Timestamp of the declaration
 
-    bool operator==(const RouterDeclaration& other) const 
+    bool operator==(const RouterDeclaration& other) const
     {
         return (router_name == other.router_name &&
                 ip_with_mask == other.ip_with_mask);
@@ -24,7 +24,8 @@ struct RouterDeclaration {
 bool isValidRouterName(const std::string& router_name);
 bool assert_ip_and_mask(const std::string& ip_with_mask) ;
 RouterDeclaration create_router_definition(std::string router_name, std::string ip_with_mask, int link_cost);
-std::string serialize_router_definition(RouterDeclaration router_declaration);
+std::string serialize_router_definition(const RouterDeclaration& router_declaration);
+// ADD THIS LINE BACK IN!
 RouterDeclaration deserialize_router_definition(const std::string& definition);
 void debug_known_router(std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb);
 bool add_router_declaration(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const RouterDeclaration& new_declaration);
