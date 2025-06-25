@@ -726,7 +726,9 @@ int main() {
                 {
                     if(command_line == "list")
                     {
-                        display_neighbor_routers(LOCAL_ROUTER_ID, local_lsdb);
+                        std::cout << "====" << std::endl;
+                        std::string res = display_neighbor_routers(LOCAL_ROUTER_ID, local_lsdb);
+                        std::cout << res << std::endl;
                     }
                 }   
             }
