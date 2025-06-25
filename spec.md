@@ -43,7 +43,7 @@ Grâce aux timestamp générer par le routeur qui s'annonce tout le monde peut c
 
 Sachant que pour la création des paquets intuitivement chaque routeur ne crée que les paquets qui le concerne. À chaque itération, les routeurs envoient toutes ses enregistrements à tous ses voisins. Mais la subtilité et que si le paquet concerne ses sous-réseaux, alors, il mettra à jour les timestamp de ses enregistrements.
 
-Dans le cas où des informations changent par exemple le cout d'un lien, le timestamp sert à dire au récepteur de ne plus prendre en compte l'ancienne valeur et d'utiliser la nouvelle valeur. Si aucune information ne change, mais que le timestamp est plus grand, alors on met, on met à jour le timestamp dans la basse du routeur qui a reçu le paquet.
+Dans le cas où des informations changent par exemple le cout d'un lien, le timestamp sert à dire au récepteur de ne plus prendre en compte l'ancienne valeur et d'utiliser la nouvelle valeur. Si aucune information ne change, mais que le timestamp est plus grand, on met à jour le timestamp dans la basse du routeur qui a reçu le paquet.
 
 Le fait que les timestamp soit constamment mis à jour si l'un d'eux vient à devenir trop vieux, car un routeur est tombé ou qu'un lien est devenu défectueux.  L'ensemble des routeurs qui suivent le protocole vont automatiquement supprimer les enregistrements trop vieux.
 
@@ -52,7 +52,7 @@ Le fait que les timestamp soit constamment mis à jour si l'un d'eux vient à de
 - Détecter si un lien ne fonctionne plus. (Tolérance aux pannes)
 - Mettre à jour la basse interne qui contient la topologie du réseau.
 - Calculer le chemin optimal pour atteindre un réseau.
-- Possibilité de lister les routeurs voisins (Pas fait)
+- Possibilité de lister les routeurs voisins (Test en cours)
 - Possibilité de choisir un routeur comme routeur par défaut (Pas fait)
 
 ## Résultats des tests
@@ -84,5 +84,3 @@ Ces tests unitaires test les fonctionnalités en faisant abstraction du transfer
 - Test de la création d'une matrice depuis la basse de donner locale.
 - Test de l'algorithme de sélection du chemin optimal.
 - Test d'affichage de la liste des voisins.
-
-/!\ Tests pas encore réalisés /!\

@@ -701,6 +701,7 @@ int main() {
     while (true) {
         FD_ZERO(&read_fds);
         FD_SET(sock, &read_fds);
+        FD_SET(STDIN_FILENO, &read_fds); // to add cli listening
 
         // Timeout de 5 secondes pour appeler onUpdate périodiquement
         timeout.tv_sec = 5;
@@ -717,6 +718,17 @@ int main() {
             if (FD_ISSET(sock, &read_fds))
             {
                 on_receive(sock, local_lsdb, LOCAL_ROUTER_ID);
+            }
+            if(FD_ISSET(STDIN_FILENO, &read_fds))
+            {
+                std::string command_line;
+                if (std::getline(std::cin, command_line))
+                {
+                    if(command_line == "list")
+                    {
+                        display_neighbor_routers(LOCAL_ROUTER_ID, local_lsdb);
+                    }
+                }   
             }
         }
     }
