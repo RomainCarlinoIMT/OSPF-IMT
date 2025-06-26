@@ -23,7 +23,7 @@
 #include <netlink/route/addr.h>
 #include <netlink/route/link.h>
 
-
+std::map<std::string, std::string> current_system_routes; 
 std::map<std::string, std::string> forwardingTable;
 std::map<std::string, std::map<std::string, RouterDeclaration>> local_lsdb; 
 
@@ -38,6 +38,7 @@ std::string get_local_hostname() {
 
 // Fonction pour supprimer une route
 void delete_route(const std::string& destination, const std::string& nextHop) {
+    std::cout << "[DEBUG] Attempting to delete route: " << destination << " via " << nextHop << std::endl;
     struct nl_sock *sock = nl_socket_alloc();
     if (!sock) {
         std::cerr << "Failed to allocate netlink socket" << std::endl;
@@ -110,6 +111,12 @@ void delete_route(const std::string& destination, const std::string& nextHop) {
     rtnl_route_put(route);
     nl_close(sock);
     nl_socket_free(sock);
+
+    if (err < 0) {
+        std::cerr << "[ERROR] Failed to delete route " << destination << " via " << nextHop << ": " << nl_geterror(err) << std::endl;
+    } else {
+        std::cout << "[INFO] Route deleted successfully: " << destination << " via " << nextHop << std::endl;
+    }
 }
 
 // Callback pour supprimer les routes indirectes
@@ -349,6 +356,7 @@ found_interface:
         std::cerr << "Failed to add route: " << nl_geterror(err) << std::endl;
     } else {
         std::cout << "Route added successfully" << std::endl;
+        current_system_routes[destination] = nextHop;
     }
 
     // Nettoyage
@@ -419,6 +427,31 @@ void updateRoutingTable(const std::string& message, std::map<std::string, std::m
     }
 }
 
+void cleanup_stale_system_routes(const std::vector<std::pair<std::string, std::string>>& new_computed_routes) {
+    std::cout << "[DEBUG] Starting cleanup_stale_system_routes." << std::endl;
+    std::set<std::pair<std::string, std::string>> new_routes_set;
+    std::cout << "[DEBUG] current_system_routes size: " << current_system_routes.size() << std::endl;
+    for (const auto& entry : current_system_routes) {
+        std::cout << "[DEBUG] Current installed route: " << entry.first << " via " << entry.second << std::endl;
+    }
+
+    auto it = current_system_routes.begin();
+    while (it != current_system_routes.end()) {
+        const std::string& destination = it->first;
+        const std::string& nextHop = it->second;
+
+        if (new_routes_set.find({destination, nextHop}) == new_routes_set.end()) {
+            std::cout << "[INFO] Detected stale route for deletion: Dest=" << destination << ", NH=" << nextHop << std::endl;
+            delete_route(destination, nextHop);
+            it = current_system_routes.erase(it);
+        } else {
+            // std::cout << "[DEBUG] Route is still valid: Dest=" << destination << ", NH=" << nextHop << std::endl;
+            ++it;
+        }
+    }
+    std::cout << "[DEBUG] Finished cleanup_stale_system_routes." << std::endl;
+}
+
 void computeShortestPaths(const std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID) {
     // Distance minimale vers chaque routeur
     std::map<std::string, int> distances;
@@ -482,7 +515,7 @@ void updateForwardingTable() {
 
 
 void apply_route_to_system(const std::string& destination, const std::string& nextHop) {
-    // Exemple de commande ip route (à adapter selon ton réseau)
+    // Example de commande ip route (à adapter selon ton réseau)
     std::string cmd = "ip route replace " + destination + " via " + nextHop;
     int ret = system(cmd.c_str());
     if (ret != 0) {
@@ -540,20 +573,17 @@ void on_receive(int sock, std::map<std::string, std::map<std::string, RouterDecl
 // Corrected on_update function:
 void on_update(std::map<std::string, std::map<std::string, RouterDeclaration>>& local_lsdb, const std::string& LOCAL_ROUTER_ID, std::vector<std::string>& interfaces)
 {
-    // 1. Update own router's declarations (this includes calling cleanup_old_declarations)
-    //    This sets fresh timestamps for YOUR declarations in local_lsdb.
     update_lsdb(local_lsdb, LOCAL_ROUTER_ID);
 
-    // 2. Now send all router declarations (your own will have fresh timestamps)
     send_all_router_declarations_to_all(local_lsdb, interfaces);
 
-    // 3. Re-compute and apply routes based on the potentially updated LSDB
-    std::vector<std::pair<std::string, std::string>> routes = compute_all_routes(LOCAL_ROUTER_ID, local_lsdb);
-    for(const auto& route : routes)
+    std::vector<std::pair<std::string, std::string>> computed_routes = compute_all_routes(LOCAL_ROUTER_ID, local_lsdb);
+
+    cleanup_stale_system_routes(computed_routes);
+
+    for(const auto& route : computed_routes)
     {
-        // Consider if you need to delete_indirect_routes() here first
-        // before adding new routes, to ensure consistency.
-        add_route(route.second, route.first);
+        add_route(route.second, route.first); 
     }
 
     std::cout << "Periodic update task executed." << std::endl;
@@ -649,6 +679,12 @@ int main() {
     std::vector<std::string> interfaces;
     std::string LOCAL_ROUTER_ID = get_local_hostname();
     std::vector<std::string> interfaces_with_mask;
+
+    // Initial cleanup of indirect routes from previous runs or other sources
+    std::cout << "Performing initial cleanup of indirect routes..." << std::endl;
+    delete_indirect_routes(); 
+    current_system_routes.clear(); 
+
 
     // Read configuration file to get interfaces and debug output
     try {
