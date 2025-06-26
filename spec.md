@@ -51,7 +51,7 @@ Le protocole que nous avons développé, avec le nom humoristique **OSPF à la s
 
   
 
-La philosophie fondamentale derrière ce protocole est d'**envoyer le moins possible d'informations** sur le réseau afin de minimiser la consommation de bande passante, et de transférer la majeure partie du **travail de traitement en interne**, au niveau de chaque routeur. Cette approche vise à décharger le réseau et à optimiser les ressources de calcul des routeurs.
+La philosophie derrière ce protocole est d'**envoyer le moins possible d'informations** sur le réseau afin de minimiser la consommation de bande passante, et de transférer la majeure partie du **travail de traitement en interne**, au niveau de chaque routeur. Cela a pour but de décharger le réseau et à optimiser les ressources de calcul des routeurs.
 
   
 
@@ -84,11 +84,11 @@ Router_4
 
   
 
-Il est impératif qu'un routeur soit nommé **R0**. Ce routeur particulier agit comme le "default originate router" (routeur d'origine par défaut), assumant le rôle de passerelle par défaut pour l'ensemble de notre système de routage.
+Il est obligatoire qu'un routeur soit nommé **R0**. Ce routeur particulier agit comme le "default originate router" (routeur d'origine par défaut), assumant le rôle de passerelle par défaut pour l'ensemble de notre système de routage.
 
   
 
-En termes de communication, le protocole utilise le protocole de transport **UDP (User Datagram Protocol)**. Ce choix est délibéré et est motivé par la nécessité d'une faible latence et d'une surcharge minimale, caractéristiques essentielles pour les échanges d'informations de routage périodiques. Les messages sont envoyés sur un port UDP spécifique, non standardisé, choisi pour cette application.
+En termes de communication, le protocole utilise le protocole de transport **UDP (User Datagram Protocol)**. Ce choix a été fait exprès et est motivé par le besoin d'une faible latence et d'une surcharge minimale pour les échanges d'informations de routage périodiques. Les messages sont envoyés sur un port UDP spécifique choisi pour cette application.
 
   
 
@@ -96,7 +96,7 @@ En termes de communication, le protocole utilise le protocole de transport **UDP
 
   
 
-L’échange d’informations entre les routeurs repose sur un **seul et unique type de message**. Cette simplicité est un pilier de notre conception, réduisant la complexité de l'analyse et du traitement des messages. Chaque message encapsule les informations essentielles d'une déclaration de routeur, contenues dans une structure `RouterDeclaration` (visible dans le code C++ fourni) qui comprend les éléments suivants :
+L’échange d’informations entre les routeurs repose sur un **seul et unique type de message**. Cette simplicité est la base de notre conception, réduisant la complexité de l'analyse et du traitement des messages. Chaque message encapsule les informations essentielles d'une déclaration de routeur, contenues dans une structure `RouterDeclaration` (visible dans le code C++ fourni) qui comprend les éléments suivants :
 
   
 
@@ -132,7 +132,7 @@ Le `1` initial sert d'identifiant pour ce type unique de message de déclaration
 
   
 
-La fonction `serialize_router_definition` transforme une structure `RouterDeclaration` en cette chaîne, et `deserialize_router_definition` effectue l'opération inverse. Cette approche simple et textuelle facilite le débogage et l'interopérabilité (bien que notre protocole soit propriétaire).
+La fonction `serialize_router_definition` transforme une structure `RouterDeclaration` en cette chaîne, et `deserialize_router_definition` effectue l'opération inverse. Cette approche simple  facilite le débogage et l'interopérabilité (bien que notre protocole soit propriétaire).
 
   
 
@@ -148,7 +148,7 @@ Le `timestamp` est un élément central pour la gestion de la fraîcheur des inf
 
   
 
-*  **Détection des informations obsolètes (`cleanup_old_declarations`)** : Grâce à cette mise à jour constante des timestamps, si un enregistrement devient trop ancien (par exemple, si un routeur tombe en panne, un lien est défaillant, ou un message est perdu pendant une longue période), il est automatiquement supprimé par les routeurs. Ce mécanisme d'**auto-épuration des données obsolètes** évite l'encombrement de la base de données sans nécessiter de messages de suppression explicites (contrairement à d'autres protocoles qui utilisent des messages de `LSA Age` ou `Flush`).
+*  **Détection des informations obsolètes (`cleanup_old_declarations`)** : Grâce à cette mise à jour constante des timestamps, si un enregistrement devient trop ancien (par exemple, si un routeur tombe en panne, un lien est cassé, ou un message est perdu pendant une longue période), il est automatiquement supprimé par les routeurs. Ce mécanisme d'**auto-épuration des données obsolètes** évite l'encombrement de la base de données sans nécessiter de messages de suppression explicites (contrairement à d'autres protocoles qui utilisent des messages de `LSA Age` ou `Flush`).
 
   
 
@@ -172,7 +172,7 @@ Cependant, il existe une subtilité pour optimiser la propagation des changement
 
   
 
-La fonction `on_receive` est le cœur de la réception des informations de routage. Elle est appelée chaque fois qu'un paquet UDP est reçu sur le port d'écoute du routeur (ici, le port 8080).
+La fonction `on_receive` est la partie la plus importante pour la réception des informations de routage. Elle est appelée chaque fois qu'un paquet UDP est reçu sur le port d'écoute du routeur (ici, le port 8080).
 
   
 
@@ -208,7 +208,7 @@ Ce processus assure que la table de routage du système d'exploitation reflète 
 
   
 
-La fonction `on_update` est déclenchée périodiquement (toutes les 5 secondes dans l'implémentation fournie, gérée par l'appel `select` avec un timeout). Elle assure la régularité des opérations de maintenance et de propagation de l'état de lien.
+La fonction `on_update` est déclenchée périodiquement (toutes les 5 secondes avec l'appel `select` et avec un timeout). Elle assure la régularité des opérations de maintenance et de propagation de l'état de lien.
 
   
 
@@ -220,7 +220,7 @@ La fonction `on_update` est déclenchée périodiquement (toutes les 5 secondes 
 
   
 
-3.  **Recalcul et Application des Routes** : Similaire à la fonction `on_receive`, `on_update` recalcule également les chemins optimaux et met à jour la table de routage du système. Cela permet de rattraper d'éventuels états non cohérents ou des routes qui n'auraient pas été mises à jour immédiatement après une réception.
+3.  **Recalcul et Application des Routes** :Comme `on_receive`, `on_update` recalcule également les chemins optimaux et met à jour la table de routage du système. Cela permet de rattraper d'éventuels états non cohérents ou des routes qui n'auraient pas été mises à jour immédiatement après une réception.
 
   
 
@@ -232,7 +232,7 @@ La fonction `on_update` est déclenchée périodiquement (toutes les 5 secondes 
 
   
 
-L'interaction entre `on_receive` et `on_update` est fondamentale : `on_receive` gère les événements asynchrones (arrivée de paquets), tandis que `on_update` assure la propagation régulière et la cohérence de l'état du réseau.
+L'interaction entre `on_receive` et `on_update` est très importante : `on_receive` gère les événements asynchrones (arrivée de paquets), tandis que `on_update` assure la propagation régulière et la cohérence de l'état du réseau.
 
   
 
@@ -240,7 +240,7 @@ L'interaction entre `on_receive` et `on_update` est fondamentale : `on_receive` 
 
   
 
-Notre protocole se distingue des protocoles de routage standard comme OSPF par plusieurs choix architecturaux qui en font une solution unique et ciblée pour des environnements spécifiques :
+Notre protocole se distingue des protocoles de routage standard comme OSPF par plusieurs choix qui en font une solution unique et ciblée :
 
   
 
@@ -256,7 +256,7 @@ Notre protocole se distingue des protocoles de routage standard comme OSPF par p
 
   
 
-*  **Philosophie "Least Possible Sent"** : Bien que le protocole envoie "tous les enregistrements" à chaque itération, cela est considéré comme une optimisation dans le contexte de sa simplicité. L'absence de mécanismes complexes de détection de changements incrémentaux, d'élections de DR/BDR, ou de synchronisation d'état complets simplifie la logique, rendant le protocole plus léger en termes de code et de surcharge de traitement pour le routeur. Pour des réseaux de petite à moyenne taille, cette approche peut être suffisante et plus facile à gérer. Pour les très grands réseaux, cela deviendrait effectivement un point faible en termes de bande passante.
+*  **Philosophie "Least Possible Sent"** : Bien que le protocole envoie "tous les enregistrements" à chaque fois, cela est considéré comme une optimisation dans le contexte de sa simplicité. L'absence de mécanismes complexes de détection de changements incrémentaux, d'élections de DR/BDR, ou de synchronisation d'état complets simplifie la logique qui rendent le protocole plus léger en termes de code et de surcharge de traitement pour le routeur. Pour des réseaux de petite à moyenne taille, cette approche peut être suffisante et plus facile à gérer. Cela dit, pour les très grands réseaux, cela deviendrait effectivement un point faible en termes de bande passante.
 
   
 
@@ -264,8 +264,7 @@ Notre protocole se distingue des protocoles de routage standard comme OSPF par p
 
   
 
-En somme, notre protocole est une implémentation simplifiée et robuste d'un algorithme à état de liens, pensée pour la facilité de développement et la résilience, plutôt que pour l'optimisation maximale de la bande passante dans les très grands réseaux. Il s'écarte des standards de l'industrie pour offrir une solution ad-hoc efficace.
-
+Ainsi, notre protocole est une implémentation simplifiée et robuste d'un algorithme à état de liens, il a été fait pour la facilité de développement et la résilience, plutôt que pour l'optimisation maximale de la bande passante dans les très grands réseaux. 
   
 
 ## Fonctionnalités
@@ -316,7 +315,7 @@ Le protocole repose sur **UDP**, ce qui implique qu'il n’y a **aucune garantie
 
   
 
-De plus, la stratégie de **renvoi multiple des mêmes informations** augmente considérablement la probabilité que les messages finissent par atteindre leur destination, même en cas de pertes sporadiques. La probabilité que **six paquets successifs soient perdus** est extrêmement faible, ce qui rend le protocole *suffisamment fiable* pour sa tâche malgré l'absence de retransmissions au niveau transport.
+De plus, la stratégie de **renvoi multiple des mêmes informations** augmente la probabilité que les messages finissent par atteindre leur destination, même en cas de pertes. La probabilité que **six paquets successifs soient perdus** est extrêmement faible, ce qui rend le protocole *suffisamment fiable* pour sa tâche malgré l'absence de retransmissions au niveau transport.
 
   
 
@@ -332,11 +331,11 @@ De plus, la stratégie de **renvoi multiple des mêmes informations** augmente c
 
   
 
-*  **Rendre le réseau indisponible (Déni de Service)** : En modifiant les tables de routage pour les rendre invalides, redirigeant le trafic vers des destinations inexistantes, ou en **saturant les routeurs** avec un grand nombre d'enregistrements "dibon" (fictifs et non valides), ce qui consommerait des ressources CPU et mémoire, ralentissant considérablement le réseau.
+*  **Rendre le réseau indisponible (Déni de Service)** : En modifiant les tables de routage pour les rendre invalides, redirigeant le trafic vers des destinations inexistantes, ou en **saturant les routeurs** avec un grand nombre d'enregistrements fictifs et non valides, ce qui consommerait des ressources CPU et mémoire, ralentissant considérablement le réseau.
 
   
 
-C'est un domaine où des améliorations futures sont essentielles, notamment l'ajout de mécanismes d'authentification et de chiffrement.
+C'est un domaine où des améliorations futures seront faites, notamment l'ajout de mécanismes d'authentification et de chiffrement.
 
   
 
@@ -344,7 +343,7 @@ C'est un domaine où des améliorations futures sont essentielles, notamment l'a
 
   
 
-Le code a été conçu selon le principe de **zero trust** : chaque fonction valide ses entrées et gère les cas inattendus, ce qui permet d’avoir des fonctions qui ne lancent aucune **exception non contrôlée**. Cela garantit que le programme ne crash pas face à des données ou des états internes inconsistants.
+Le code a été conçu selon le principe de **zero trust** : chaque fonction valide ses entrées et gère les cas inattendus, ce qui permet d’avoir des fonctions qui ne lancent aucune **exception non contrôlée**. Cela garantit que le programme ne crash pas face à des données ou des états internes qui ne valent rien.
 
   
 
@@ -465,7 +464,7 @@ Ces tests unitaires vérifient les fonctionnalités en faisant abstraction du tr
 
   
 
-Cette section présente des captures d'écran illustrant le comportement du protocole OSPF développé par Julien et Romain, avant et après la convergence des tables de routage. Ces visuels complètent les résultats des tests unitaires en montrant l'impact réel du protocole sur un routeur Debian 12, avec ce réseau:
+Cette partie présente des captures d'écran illustrant le comportement du protocole OSPF développé par Julien et Romain, avant et après la convergence des tables de routage. Cela complète un peu les tests unitaires en montrant l'impact réel du protocole sur des routeurs sous Debian 12, avec ce réseau:
 
 ![Table de routage R5 avant protocole](https://github.com/RomainCarlinoIMT/OSPF-IMT/raw/main/pictures/reseau.png)
   
@@ -474,7 +473,7 @@ Cette section présente des captures d'écran illustrant le comportement du prot
 
   
 
-Avant l'activation du protocole, les tables de routage du routeur R5 ne contiennent que les routes directement connectées ou configurées manuellement. Les captures d'écran ci-dessous montrent l'état typique de la table de routage (`ip route show`) et éventuellement des règles de filtrage ou de NAT (`iptables -L`) si elles sont pertinentes à l'environnement de test.
+Avant l'activation du protocole, les tables de routage du routeur R5 ne contiennent que les routes directement connectées. Les captures d'écran ci-dessous montrent l'état typique de la table de routage (`ip route show`) et éventuellement des règles de filtrage ou de NAT (`iptables -L`) si elles sont pertinentes à l'environnement de test.
 
   
  ![Table de routage R5 avant protocole](https://github.com/RomainCarlinoIMT/OSPF-IMT/raw/main/pictures/iprouteavant.png)
@@ -493,7 +492,7 @@ Avant l'activation du protocole, les tables de routage du routeur R5 ne contienn
 ### État du Routeur R5 après Convergence
 
 
-Après le démarrage du protocole et un certain temps (généralement quelques seconds à quelques minutes, en fonction de la taille du réseau et des intervalles de mise à jour), le routeur R5 aura échangé des informations avec ses voisins et convergé. Sa table de routage sera alors enrichie avec les routes apprises dynamiquement via notre protocole, reflétant la topologie optimale du réseau.
+Après le démarrage du protocole et un certain temps (généralement quelques seconds à quelques minutes, en fonction de la taille du réseau et des intervalles de mise à jour), le routeur R5 aura échangé des informations avec ses voisins et convergé. Sa table de routage sera alors remplie avec les routes apprises dynamiquement via notre protocole, reflétant la topologie optimale du réseau.
 
   ![Table de routage R5 avant protocole](https://github.com/RomainCarlinoIMT/OSPF-IMT/raw/main/pictures/iprouteapres.png)
 
@@ -514,7 +513,7 @@ Ces exemples visuels permettent de constater l'efficacité du protocole à const
 
   
 
-*  **Simplicité** : Un seul type de message à gérer réduit considérablement la complexité de l’implémentation, facilitant le développement et la maintenance.
+*  **Simplicité** : Un seul type de message à gérer réduit beaucoup la complexité de l’implémentation, facilitant le développement et la maintenance.
 
   
 
@@ -534,7 +533,7 @@ Ces exemples visuels permettent de constater l'efficacité du protocole à const
 
   
 
-*  **Pas d’optimisation de bande passante pour les grands réseaux** : Tous les enregistrements sont envoyés à chaque itération. Dans un très grand réseau, cela pourrait générer un trafic excessif.
+*  **Pas d’optimisation de bande passante pour les grands réseaux** : Tous les enregistrements sont envoyés à chaque fois. Et dans un très grand réseau, cela pourrait générer un trafic excessif.
 
   
 
@@ -630,11 +629,11 @@ La gestion de la mémoire est principalement influencée par la taille de la `lo
 
   
 
-*  **Croissance de la `local_lsdb`** : La `local_lsdb` grandit avec le nombre de routeurs et de liens dans le réseau. Chaque entrée stocke le nom du routeur (chaîne), l'IP/masque (chaîne), un coût (entier) et un timestamp (long long). Pour un réseau de taille modeste, l'impact mémoire est faible. Cependant, dans de très grands réseaux avec de nombreux routeurs et liens, la quantité de données stockées pourrait devenir significative.
+*  **Croissance de la `local_lsdb`** : La `local_lsdb` grandit avec le nombre de routeurs et de liens dans le réseau. Chaque entrée stocke le nom du routeur (chaîne), l'IP/masque (chaîne), un coût (entier) et un timestamp (long long). Pour un réseau de taille normale, l'impact mémoire est faible. Cependant, dans de très grands réseaux avec de nombreux routeurs et liens, la quantité de données stockées pourrait devenir importante.
 
   
 
-*  **Mécanisme de Nettoyage** : La fonction `cleanup_old_declarations` est cruciale pour la gestion de la mémoire. En supprimant les déclarations obsolètes (celles dont le timestamp est trop ancien), elle empêche la `local_lsdb` de croître indéfiniment et de consommer des ressources excessives, ce qui est vital pour la stabilité à long terme du routeur. Elle garantit que seules les informations actives et pertinentes sont conservées en mémoire.
+*  **Mécanisme de Nettoyage** : La fonction `cleanup_old_declarations` est vraiment importante pour la gestion de la mémoire. En supprimant les déclarations obsolètes (celles dont le timestamp est trop ancien), elle empêche la `local_lsdb` de croître indéfiniment et de consommer des ressources excessives, ce qui est vital pour la stabilité à long terme du routeur. Elle garantit que seules les informations actives et pertinentes sont conservées en mémoire.
 
   
 ### Fichier de Configuration
@@ -658,6 +657,6 @@ Cela en fait un système à la fois **simple** et **"plug-and-play"**, une fois 
 
   
 
-Comme mentionné précédemment, le protocole utilise des ports UDP pour ses communications. Un port spécifique est configuré pour l'envoi et la réception des messages de déclaration. Par exemple, le protocole pourrait écouter sur le port `8080` (valeur arbitraire non standardisée, comme indiqué dans le code) pour recevoir les messages des voisins et envoyer les siens sur ce même port ou un autre port défini. Le choix d'UDP, sans les garanties de TCP, est compensé par la nature périodique et la redondance des envois d'informations, ce qui est une approche courante pour les protocoles de routage en temps réel où la rapidité est privilégiée sur la fiabilité transactionnelle.
+Comme mentionné précédemment, le protocole utilise des ports UDP pour ses communications. Un port spécifique est configuré pour l'envoi et la réception des messages de déclaration. Le choix d'UDP, sans les garanties de TCP, est compensé par la nature périodique et la redondance des envois d'informations, ce qui est une approche courante pour les protocoles de routage en temps réel où la rapidité est privilégiée sur la fiabilité transactionnelle.
 
 ```
