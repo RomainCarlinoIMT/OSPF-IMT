@@ -5,17 +5,23 @@
 
 ## Sommaire
 
-- Généralités et fonctionnement
+- Généralités 
+
+- Fonctionnement
 
 - Fonctionnalités
 
+- Points fort et faibles
+
 - Résultats des tests
+
+- Synthèse
 
 -----
 
   
 
-## Généralités et fonctionnement
+## Généralités 
 
 Le protocole a pour nom humoristique `OSPF à la sauce Julien et Romain`.
 
@@ -37,23 +43,79 @@ Router_4 (invalide)
 
 Sachant qu'il doit obligatoirement y avoir un routeur R0 qui sera le routeur `default originate` qui aura pour rôle d'être le routeur par défaut de notre système de routage.  
 
-L'échange d'information repose sur un seul type de message. Chaque message contient le nom d'un routeur qui est sont hostname. Son ip dans le réseau avec son masque (ce qui permet d'avoir l'IP du routeur dans le réseau et l'adresse du réseau). Le cout du lien. Et une information très importante, le timestamp que création du message.  
+## Fonctionnement
 
-Grâce aux timestamp générer par le routeur qui s'annonce tout le monde peut connaître la fraicheur d'un enregistrement. Le but de chacun de paquets est d'être bien sûr d'être envoyé à tout le monde. 
+L’échange d’informations repose sur un seul type de message.
+Chaque message contient les éléments suivants :
 
-Sachant que pour la création des paquets intuitivement chaque routeur ne crée que les paquets qui le concerne. À chaque itération, les routeurs envoient toutes ses enregistrements à tous ses voisins. Mais la subtilité et que si le paquet concerne ses sous-réseaux, alors, il mettra à jour les timestamp de ses enregistrements.
+- Le nom du routeur (hostname),
 
-Dans le cas où des informations changent par exemple le cout d'un lien, le timestamp sert à dire au récepteur de ne plus prendre en compte l'ancienne valeur et d'utiliser la nouvelle valeur. Si aucune information ne change, mais que le timestamp est plus grand, on met à jour le timestamp dans la basse du routeur qui a reçu le paquet.
+- Son adresse IP et son masque de sous-réseau (pour identifier l’adresse réseau),
 
-Le fait que les timestamp soit constamment mis à jour si l'un d'eux vient à devenir trop vieux, car un routeur est tombé ou qu'un lien est devenu défectueux.  L'ensemble des routeurs qui suivent le protocole vont automatiquement supprimer les enregistrements trop vieux.
+- Le coût du lien (valeur associée à la qualité ou au coût d’un lien réseau),
+
+- Un timestamp correspondant à la date de création du message.
+
+#### Utilisation du timestamp
+
+Chaque routeur s’annonce périodiquement en générant un message avec un timestamp unique et croissant.
+Ce timestamp permet aux autres routeurs de déterminer la fraîcheur de l'information. Ainsi :
+
+- Si un message avec un coût de lien mis à jour est reçu, il remplace l’ancien dans la base de données locale du routeur destinataire.
+
+- Si le timestamp est plus récent mais que l'information ne change pas, seul le timestamp est mis à jour localement. 
+
+#### Diffusion des informations
+Le protocole repose sur une diffusion régulière :
+À chaque itération, un routeur envoie tous les enregistrements qu’il possède à tous ses voisins.
+
+Cependant, il existe une subtilité :
+
+- Si un routeur reçoit une information concernant ses propres sous-réseaux, il met à jour les timestamps de ces enregistrements avant de les renvoyer, assurant ainsi une propagation plus fraîche de l'information.
+
+#### Expiration des données
+
+Grâce aux timestamps constamment mis à jour, si un enregistrement devient trop ancien (par exemple si un routeur tombe ou qu’un lien est défaillant), il sera automatiquement supprimé par les routeurs qui suivent le protocole.
+Cela permet une auto-épuration des données obsolètes, sans nécessiter de messages de suppression explicites.
+
 
 ## Fonctionnalités
-- Possibilité de choisir sur quels réseaux sont inclus dans le protocole.
+- Possibilité de choisir sur quels interfaces sont inclus dans le protocole.
 - Détecter si un lien ne fonctionne plus. (Tolérance aux pannes)
 - Mettre à jour la basse interne qui contient la topologie du réseau.
 - Calculer le chemin optimal pour atteindre un réseau.
-- Possibilité de lister les routeurs voisins (Test en cours)
+- Possibilité de lister les routeurs voisins.
+
+### Fonctionnalités pas encore implémenté
 - Possibilité de choisir un routeur comme routeur par défaut (Pas fait)
+- La reception de paquets modifiant a topologie du réseau fait temporairement diminuer l'intervale d'envois des paquets.
+
+
+## Point forts et faibles
+
+### fiabité
+Le protocole repose sur **UDP**, donc il n’y a **aucune garantie de réception** des paquets intègres. Cependant, notre code est capable, dans une certaine mesure, de **détecter les paquets mal formés**, qui seront alors ignorés.
+De plus, **le protocole renvoie plusieurs fois les mêmes informations**, ce qui rend la probabilité que **six paquets successifs soient perdus** extrêmement faible.
+
+
+### Sécurité
+**Aucun mécanisme** de sécurité n’a été mis en place.
+Les messages sont envoyés **en clair sur le réseau**. Un attaquant connaissant le protocole pourrait forger ses propres trames et faire croire à tous les routeurs dits "fiables" de fausses informations.
+Il pourrait également **rendre le réseau indisponible** en modifiant les tables de routage pour qu’elles soient invalides, ou en **saturant les routeurs** avec des enregistrements "dibon" (fictifs), ce qui ralentirait considérablement le réseau.
+
+
+
+### Robustesse
+Le code a été conçu selon le principe de `zero trust`, ce qui permet d’avoir des fonctions qui ne lancent aucune **exception non contrôlée**.
+Grâce à des tests unitaires (décrits plus en détail plus loin), nous avons pu valider que le code se comporte correctement, même en présence de cas inattendus.
+Ces tests garantissent que les fonctions fonctionnent aussi bien dans les cas **normaux** que dans les cas **erronés**.
+
+> Une anecdote illustre bien la robustesse du code :
+Lors de la création des tests unitaires, plusieurs bases d’états des liens ont été créées. À un moment, une **inattention dans le nommage des variables** a provoqué une incohérence : certains routeurs simulés étaient reliés à des réseaux qu’ils n’étaient pas censés connaître.
+Malgré cela, **le protocole n’a provoqué aucun crash**. Il s’est simplement mis à essayer d’envoyer des paquets vers des réseaux inexistants dans la configuration actuelle, ce qui montre sa capacité à gérer des erreurs de manière contrôlée.
+
+
+
 
 ## Résultats des tests
 Pour tester notre protocole, des tests unitaires ont été faits pour garantir le fonctionnement.
@@ -66,7 +128,7 @@ Les tests unitaires sont lancé avec les commandes suivantes
 ./unit_test
 [Tout les tests]
 ```
-Ces tests unitaires test les fonctionnalités en faisant abstraction du transfert réseau. (Une démonstration sera probablement faite pour prouver le transfert des données sur le réseau.)
+Ces tests unitaires test les fonctionnalités en faisant abstraction du transfert réseau. (La démonstration qui montre les echange réseaux a été faite)
 
 #### Résumé des tests:
 - Validation du nom du routeur
@@ -84,3 +146,23 @@ Ces tests unitaires test les fonctionnalités en faisant abstraction du transfer
 - Test de la création d'une matrice depuis la basse de donner locale.
 - Test de l'algorithme de sélection du chemin optimal.
 - Test d'affichage de la liste des voisins.
+
+
+## Synthèse
+Points forts :
+- **Simplicité** : un seul type de message à gérer réduit la complexité de l’implémentation.
+
+- **Diffusion implicite** : les données circulent sans avoir besoin d’arbres ou de chemins spécifiques.
+
+- **Actualisation automatique** : le système se met à jour en continu tant que les messages sont reçus.
+
+- **Résilience aux pannes** : un routeur inactif est détecté implicitement grâce à l’expiration des timestamps.
+
+Points faibles :
+- **Pas d’optimisation de bande passante** : tous les enregistrements sont envoyés à chaque itération, ce qui peut être coûteux dans les grands réseaux.
+
+- **Propagation lente** en cas de lien faible ou congestionné.
+
+- **Pas de protection** contre les boucles ou doublons si deux routeurs mettent à jour les mêmes enregistrements sans coordination.
+
+- **Pas de mécanisme de vérification d’authenticité** ou d’intégrité, ce qui est un vrai souci du côté sécurité.
